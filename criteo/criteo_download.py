@@ -4,8 +4,8 @@ from sklearn.feature_extraction import FeatureHasher
 import time
 
 
-input_file = 'C:/Users/aleks/OneDrive/Pulpit/MLDataStreams/MLDataStreams/criteo/test.txt'
-output_file = 'C:/Users/aleks/OneDrive/Pulpit/MLDataStreams/MLDataStreams/criteo/data/criteo_100.arff'
+input_file = './criteo/test.txt'
+output_file = './criteo/data/criteo_100.arff'
 
 # 'label' is target. 'I1' to 'I13' are numerical features, while 'C1' to 'C26' are categorical features.
 col_names = ['label'] + [f'I{i}' for i in range(1, 14)] + [f'C{i}' for i in range(1, 27)]
