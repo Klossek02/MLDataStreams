@@ -6,6 +6,8 @@
 *.zip
 *.h5
 *.hdf5
+*.pred
+*.arff
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
