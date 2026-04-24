@@ -1,8 +1,8 @@
 import pandas as pd
 import time
 
-input_file = './avazu/train.csv'
-output_file = './avazu/avazu_train_1M.csv'
+input_file = './train.csv'
+output_file = './avazu_train_1M.csv'
 
 start_time = time.time()
 
