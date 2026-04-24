@@ -4,7 +4,7 @@ from sklearn.feature_extraction import FeatureHasher
 import time
 
 
-input_file = './criteo/test.txt'
+input_file = './criteo/train.txt'
 output_file = './criteo/data/criteo_100.arff'
 
 # 'label' is target. 'I1' to 'I13' are numerical features, while 'C1' to 'C26' are categorical features.
