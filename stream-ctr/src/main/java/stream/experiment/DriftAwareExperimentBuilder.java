@@ -158,7 +158,7 @@ public class DriftAwareExperimentBuilder {
 
         specs.add(new Spec("avazu",
                 () -> new ArffStreamProvider(avazuPath),
-                1_000_000L,
+                200_000L,
                 20, 5_000, 0.005,
                 10, 20,
                 0.002,
@@ -170,7 +170,7 @@ public class DriftAwareExperimentBuilder {
 
         specs.add(new Spec("criteo",
                 () -> new ArffStreamProvider(criteoPath),
-                1_000_000L,
+                200_000L,
                 20, 5_000, 0.005,
                 10, 20,
                 0.002,
@@ -181,8 +181,8 @@ public class DriftAwareExperimentBuilder {
                 "default"));
 
         specs.add(new Spec("agrawal_sudden",
-                () -> new AgrawalStreamProvider(500_000, 250_000, 1, 3),   // totalInstances=500k, drift @250k
-                500_000L,
+                () -> new AgrawalStreamProvider(200_000, 100_000, 1, 3),
+                200_000L,
                 5, 800, 0.05,
                 10, 4,
                 0.001,
@@ -193,8 +193,8 @@ public class DriftAwareExperimentBuilder {
                 "default"));
 
         specs.add(new Spec("agrawal_gradual",
-                () -> new AgrawalStreamProvider(500_000, 250_000, 50_000, 1, 3, 42), // gradual width 50k
-                500_000L,
+                () -> new AgrawalStreamProvider(200_000, 100_000, 40_000, 1, 3, 42),
+                200_000L,
                 5, 800, 0.05,
                 10, 4,
                 0.001,

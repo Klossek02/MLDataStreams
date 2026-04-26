@@ -43,13 +43,13 @@ public class ExperimentMatrix {
     public static List<Experiment> build(String avazuPath, String criteoPath) {
         List<Dataset> datasets = List.of(
                 new Dataset("avazu",
-                        () -> new ArffStreamProvider(avazuPath), 1_000_000L),
+                        () -> new ArffStreamProvider(avazuPath), 200_000L),
                 new Dataset("criteo",
-                        () -> new ArffStreamProvider(criteoPath), 1_000_000L),
+                        () -> new ArffStreamProvider(criteoPath), 200_000L),
                 new Dataset("agrawal_sudden",
-                        () -> new AgrawalStreamProvider(500_000, 250_000, 1, 3), 500_000L),
+                        () -> new AgrawalStreamProvider(200_000, 100_000, 1, 3), 200_000L),
                 new Dataset("agrawal_gradual",
-                        () -> new AgrawalStreamProvider(500_000, 250_000, 100_000, 1, 3, 42), 500_000L)
+                        () -> new AgrawalStreamProvider(200_000, 100_000, 40_000, 1, 3, 42), 200_000L)
         );
 
         List<ModelSpec> models = List.of(

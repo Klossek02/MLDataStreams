@@ -11,11 +11,42 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 public class ExperimentRunner {
 
     public ExperimentResult run(Experiment exp) {
+        long timeoutMin = chooseTimeoutMinutes(exp.datasetName(), exp.modelName());
+        ExecutorService es = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "exp-" + exp.name());
+            t.setDaemon(true);
+            return t;
+        });
+        Future<ExperimentResult> fut = es.submit(() -> runUnsafe(exp));
+        try {
+            return fut.get(timeoutMin, TimeUnit.MINUTES);
+        } catch (TimeoutException te) {
+            fut.cancel(true);
+            System.err.printf("  TIMEOUT after %d min: %s%n", timeoutMin, exp.name());
+            return null;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (Exception e) {
+            System.err.println("  FAILED: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        } finally {
+            es.shutdownNow();
+        }
+    }
+
+    private ExperimentResult runUnsafe(Experiment exp) {
         StreamProvider provider = exp.streamFactory().get();
         StreamModel model = exp.modelFactory().get();
 
@@ -60,14 +91,13 @@ public class ExperimentRunner {
         for (int i = 0; i < experiments.size(); i++) {
             Experiment exp = experiments.get(i);
             System.out.printf("[%d/%d] running %s%n", i + 1, experiments.size(), exp.name());
-            try {
-                ExperimentResult r = run(exp);
+            ExperimentResult r = run(exp);
+            if (r != null) {
                 System.out.printf("  done n=%d ms=%d %s%n",
                         r.instances(), r.elapsedMs(), r.finalMetrics());
                 out.add(r);
-            } catch (Exception e) {
-                System.err.println("  FAILED: " + e.getMessage());
-                e.printStackTrace();
+            } else {
+                System.out.printf("  skipped (no result): %s%n", exp.name());
             }
         }
         return out;
@@ -79,5 +109,13 @@ public class ExperimentRunner {
         if (limit <= 200_000)      return 10_000;
         if (limit <= 1_000_000)    return 50_000;
         return 100_000;
+    }
+
+    private static long chooseTimeoutMinutes(String dataset, String model) {
+        boolean isSrp = model.contains("SRP");
+        if (dataset.startsWith("agrawal")) {
+            return isSrp ? 15 : 5;
+        }
+        return isSrp ? 60 : 20;
     }
 }

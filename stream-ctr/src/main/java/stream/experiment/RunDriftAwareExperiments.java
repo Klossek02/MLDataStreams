@@ -7,6 +7,12 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 
 public class RunDriftAwareExperiments {
 
@@ -28,19 +34,24 @@ public class RunDriftAwareExperiments {
         long globalStart = System.currentTimeMillis();
 
         for (var spec : specs) {
-            idx++;
-            banner(idx, total, spec.datasetName(), "DriftAwareSelector + HT", globalStart);
-            results.add(safeRun(() -> DriftAwareExperimentBuilder
-                    .runDriftAwareSelectorWithModel(spec, "HT", HoeffdingTreeModel::new)));
+            String ds = spec.datasetName();
 
             idx++;
-            banner(idx, total, spec.datasetName(), "DriftAwareSelector + HAT", globalStart);
-            results.add(safeRun(() -> DriftAwareExperimentBuilder
-                    .runDriftAwareSelectorWithModel(spec, "HAT", HatModel::new)));
+            banner(idx, total, ds, "DriftAwareSelector + HT", globalStart);
+            results.add(safeRun(ds, "HT",
+                    () -> DriftAwareExperimentBuilder
+                            .runDriftAwareSelectorWithModel(spec, "HT", HoeffdingTreeModel::new)));
 
             idx++;
-            banner(idx, total, spec.datasetName(), "DriftAwareSRP", globalStart);
-            results.add(safeRun(() -> DriftAwareExperimentBuilder.runDriftAwareSrp(spec)));
+            banner(idx, total, ds, "DriftAwareSelector + HAT", globalStart);
+            results.add(safeRun(ds, "HAT",
+                    () -> DriftAwareExperimentBuilder
+                            .runDriftAwareSelectorWithModel(spec, "HAT", HatModel::new)));
+
+            idx++;
+            banner(idx, total, ds, "DriftAwareSRP", globalStart);
+            results.add(safeRun(ds, "DASRP",
+                    () -> DriftAwareExperimentBuilder.runDriftAwareSrp(spec)));
         }
 
         results.removeIf(r -> r == null);
@@ -81,16 +92,40 @@ public class RunDriftAwareExperiments {
                 idx, total, elapsed, dataset, what);
     }
 
-    private static ExperimentResult safeRun(java.util.function.Supplier<ExperimentResult> fn) {
+    private static ExperimentResult safeRun(String dataset, String model,
+                                            Supplier<ExperimentResult> fn) {
+        long timeoutMin = chooseTimeoutMinutes(dataset, model);
+        ExecutorService es = Executors.newSingleThreadExecutor(r -> {
+            Thread t = new Thread(r, "da-exp");
+            t.setDaemon(true);
+            return t;
+        });
+        Future<ExperimentResult> fut = es.submit(fn::get);
         try {
-            ExperimentResult r = fn.get();
-            System.out.printf("  done n=%d ms=%d %s%n",
-                    r.instances(), r.elapsedMs(), r.finalMetrics());
+            ExperimentResult r = fut.get(timeoutMin, TimeUnit.MINUTES);
+            if (r != null) {
+                System.out.printf("  done n=%d ms=%d %s%n",
+                        r.instances(), r.elapsedMs(), r.finalMetrics());
+            }
             return r;
+        } catch (TimeoutException te) {
+            fut.cancel(true);
+            System.err.printf("  TIMEOUT after %d min (%s / %s)%n", timeoutMin, dataset, model);
+            return null;
         } catch (Exception e) {
             System.err.println("  FAILED: " + e.getMessage());
             e.printStackTrace();
             return null;
+        } finally {
+            es.shutdownNow();
         }
+    }
+
+    private static long chooseTimeoutMinutes(String dataset, String model) {
+        boolean isSrp = model.contains("SRP") || model.equals("DASRP");
+        if (dataset.startsWith("agrawal")) {
+            return isSrp ? 15 : 5;
+        }
+        return isSrp ? 60 : 20;
     }
 }

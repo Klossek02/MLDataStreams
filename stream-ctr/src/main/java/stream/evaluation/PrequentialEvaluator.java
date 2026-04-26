@@ -119,6 +119,12 @@ public class PrequentialEvaluator {
         long startMs = System.currentTimeMillis();
         long t = 0;
         while (provider.hasNext() && (limit <= 0 || t < limit)) {
+            // ---- NEW: cooperative cancellation (przerywanie przez Future.cancel(true)) ----
+            if (Thread.currentThread().isInterrupted()) {
+                System.out.println("  [interrupted] @" + t);
+                break;
+            }
+
             Instance raw = provider.next();
             int y = (int) raw.classValue();
 
