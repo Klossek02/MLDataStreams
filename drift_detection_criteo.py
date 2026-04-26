@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from river import drift
 import time
 
-input_file = 'C:/Users/aleks/OneDrive/Pulpit/MLDataStreams/MLDataStreams/criteo/train.txt' 
+input_file = './criteo/train.txt' 
 
 df = pd.read_csv(input_file, sep='\t', usecols=[0], names=['label'], nrows=1000000)
 
