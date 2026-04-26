@@ -8,6 +8,10 @@ __pycache__/
 
 .idea/
 
+*.csv
+*.arff
+*.txt
+
 # Distribution / packaging
 .Python
 build/
