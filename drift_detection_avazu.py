@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from river import drift
 import time
 
-input_file = 'C:/Users/aleks/OneDrive/Pulpit/MLDataStreams/MLDataStreams/avazu/data/avazu_train_1M.csv' 
+input_file = './avazu/data/avazu_train_1M.csv' 
 
 df = pd.read_csv(input_file)
 clicks = df['click'].values
