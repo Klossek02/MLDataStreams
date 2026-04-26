@@ -17,7 +17,6 @@ window_size = 10000  # local CTR from last 10k displays
 current_window_clicks = 0
 
 start_time = time.time()
-print("Rozpoczęto detekcję ADWIN...")
 
 for i, click in enumerate(clicks):
     adwin.update(click)
@@ -51,7 +50,6 @@ for i, drift_idx in enumerate(drifts_detected):
     else:
         plt.axvline(x=drift_idx, color='red', linestyle='--', alpha=0.7)
 
-# 4. Zmieniony tytuł wykresu
 plt.title('Concept drift detection on Criteo using ADWIN')
 plt.xlabel('Instance number in the stream')
 plt.ylabel('Click-through rate (%)')
