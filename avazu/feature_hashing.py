@@ -4,8 +4,11 @@ from sklearn.feature_extraction import FeatureHasher
 import time
 import os
 
-input_file = './avazu_train_1M.csv'
-output_file = './data/avazu_extended.arff'
+
+base_dir = os.path.dirname(__file__)
+
+input_file = os.path.join(base_dir, 'avazu_train_1M.csv')
+output_file = os.path.join(base_dir, 'data', 'avazu_extended.arff')
 
 os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
