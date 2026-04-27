@@ -4,6 +4,7 @@ import stream.evaluation.AccuracyMetric;
 import stream.evaluation.LogLossMetric;
 import stream.evaluation.PrequentialEvaluator;
 import stream.evaluation.WindowedMetric;
+import stream.config.ProjectPaths;
 import stream.model.HoeffdingTreeModel;
 import stream.provider.AgrawalStreamProvider;
 import stream.provider.ArffStreamProvider;
@@ -17,7 +18,7 @@ public class SmokeTestDrift {
     public static void main(String[] args) throws IOException {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
 
         System.out.println("=== Test 1: ADWIN bare-bones (synthetic shift) ===");
         bareAdwinTest();
@@ -75,7 +76,7 @@ public class SmokeTestDrift {
             System.out.printf("  event @%d  wBefore=%d  wAfter=%d%n",
                     de.instanceIndex(), de.windowSizeBefore(), de.windowSizeAfter());
         }
-        Path csv = Path.of("results", "agrawal_ht_adwin.csv");
+        Path csv = ProjectPaths.resultsDir().resolve("agrawal_ht_adwin.csv");
         ev.exportCsv(csv);
         System.out.println("CSV: " + csv.toAbsolutePath());
     }
@@ -97,7 +98,7 @@ public class SmokeTestDrift {
         long n = ev.run(new HoeffdingTreeModel(), provider, 50_000);
 
         System.out.printf("Processed %d  drifts=%d%n", n, ev.driftCount());
-        Path csv = Path.of("results", "avazu_ht_adwin.csv");
+        Path csv = ProjectPaths.resultsDir().resolve("avazu_ht_adwin.csv");
         ev.exportCsv(csv);
         System.out.println("CSV: " + csv.toAbsolutePath()
                 + "  events=" + ev.driftEvents().size());

@@ -1,5 +1,6 @@
 package stream.evaluation;
 
+import stream.config.ProjectPaths;
 import stream.model.HoeffdingTreeModel;
 import stream.provider.ArffStreamProvider;
 import stream.provider.StreamProvider;
@@ -12,9 +13,9 @@ public class SmokeTestPrequential {
     public static void main(String[] args) throws IOException {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
         long limit = (args.length > 1) ? Long.parseLong(args[1]) : 50_000L;
-        Path outCsv = Path.of("results", "avazu_ht_prequential.csv");
+        Path outCsv = ProjectPaths.resultsDir().resolve("avazu_ht_prequential.csv");
 
         StreamProvider provider = new ArffStreamProvider(arffPath);
 

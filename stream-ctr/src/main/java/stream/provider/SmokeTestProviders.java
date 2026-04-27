@@ -2,6 +2,7 @@ package stream.provider;
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
+import stream.config.ProjectPaths;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -11,7 +12,7 @@ public class SmokeTestProviders {
     public static void main(String[] args) {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
 
         System.out.println("=== Test 1: ArffStreamProvider (Avazu) ===");
         StreamProvider arff = new ArffStreamProvider(arffPath);

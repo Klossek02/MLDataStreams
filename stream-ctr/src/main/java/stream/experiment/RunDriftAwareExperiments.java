@@ -1,5 +1,6 @@
 package stream.experiment;
 
+import stream.config.ProjectPaths;
 import stream.model.HatModel;
 import stream.model.HoeffdingTreeModel;
 
@@ -19,11 +20,11 @@ public class RunDriftAwareExperiments {
     public static void main(String[] args) throws IOException {
         String avazuPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_extended.arff";
+                : ProjectPaths.avazuExtendedArff();
         String criteoPath = (args.length > 1)
                 ? args[1]
-                : "/home/kubog/MLDataStreams/criteo/data/criteo_extended.arff";
-        Path outDir = Path.of("results");
+                : ProjectPaths.criteoExtendedArff();
+        Path outDir = ProjectPaths.resultsDir();
 
         List<DriftAwareExperimentBuilder.Spec> specs =
                 DriftAwareExperimentBuilder.defaultSpecs(avazuPath, criteoPath);

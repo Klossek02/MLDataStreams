@@ -2,6 +2,7 @@ package stream.model;
 
 import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
+import stream.config.ProjectPaths;
 import stream.provider.AgrawalStreamProvider;
 import stream.provider.ArffStreamProvider;
 import stream.provider.StreamProvider;
@@ -14,7 +15,7 @@ public class SmokeTestAllModels {
     public static void main(String[] args) {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
 
         List<Supplier<StreamModel>> models = List.of(
                 HoeffdingTreeModel::new,

@@ -13,7 +13,7 @@ public record ExperimentConfig(
 ) {
     public static ExperimentConfig avazuDefault() {
         return new ExperimentConfig(
-                "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff",
+                ProjectPaths.avazuHashedArff(),
                 "avazu",
                 1000,
                 20,
@@ -27,7 +27,7 @@ public record ExperimentConfig(
 
     public static ExperimentConfig criteoDefault() {
         return new ExperimentConfig(
-                "data/criteo_100.arff",
+                ProjectPaths.criteoHashedArff(),
                 "criteo",
                 1000,
                 20,

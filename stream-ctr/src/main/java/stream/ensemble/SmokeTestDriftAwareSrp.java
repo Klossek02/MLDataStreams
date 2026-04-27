@@ -1,6 +1,7 @@
 package stream.ensemble;
 
 import com.yahoo.labs.samoa.instances.Instance;
+import stream.config.ProjectPaths;
 import stream.drift.AdwinDriftDetector;
 import stream.evaluation.AccuracyMetric;
 import stream.evaluation.LogLossMetric;
@@ -22,7 +23,7 @@ public class SmokeTestDriftAwareSrp {
     public static void main(String[] args) throws IOException {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
 
         System.out.println("=== Test 1: standalone training (no drift) on Agrawal ===");
         standalone();
@@ -140,7 +141,7 @@ public class SmokeTestDriftAwareSrp {
                 ev.metrics().get(2).getValue(),
                 ev.metrics().get(3).getValue(),
                 ms, ev.driftCount());
-        Path csv = Path.of("results", tag + ".csv");
+        Path csv = ProjectPaths.resultsDir().resolve(tag + ".csv");
         ev.exportCsv(csv);
         System.out.println("  CSV: " + csv);
     }

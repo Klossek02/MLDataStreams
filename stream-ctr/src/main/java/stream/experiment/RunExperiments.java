@@ -1,5 +1,7 @@
 package stream.experiment;
 
+import stream.config.ProjectPaths;
+
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.List;
@@ -9,11 +11,11 @@ public class RunExperiments {
     public static void main(String[] args) throws IOException {
         String avazuPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_extended.arff";
+                : ProjectPaths.avazuExtendedArff();
         String criteoPath = (args.length > 1)
                 ? args[1]
-                : "/home/kubog/MLDataStreams/criteo/data/criteo_extended.arff";
-        Path outDir = Path.of("results");
+                : ProjectPaths.criteoExtendedArff();
+        Path outDir = ProjectPaths.resultsDir();
 
         List<Experiment> matrix = ExperimentMatrix.build(avazuPath, criteoPath);
         System.out.println("Total experiments: " + matrix.size());

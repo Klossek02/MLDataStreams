@@ -1,5 +1,6 @@
 package stream.features;
 
+import stream.config.ProjectPaths;
 import stream.drift.AdwinDriftDetector;
 import stream.evaluation.AccuracyMetric;
 import stream.evaluation.LogLossMetric;
@@ -19,7 +20,7 @@ public class SmokeTestDriftAware {
     public static void main(String[] args) throws IOException {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
 
         System.out.println("=== Test 1: DriftAware on Agrawal (drift @ 10k, fn 1->3) ===");
         runOnAgrawal();
@@ -64,7 +65,7 @@ public class SmokeTestDriftAware {
         long n = ev.run(model, provider, 20_000);
         System.out.printf("Processed %d  drifts=%d  adaptations=%d%n",
                 n, ev.driftCount(), selector.events().size());
-        Path csv = Path.of("results", "agrawal_ht_driftaware.csv");
+        Path csv = ProjectPaths.resultsDir().resolve("agrawal_ht_driftaware.csv");
         ev.exportCsv(csv);
         System.out.println("CSV: " + csv);
     }
@@ -100,7 +101,7 @@ public class SmokeTestDriftAware {
         long n = ev.run(model, provider, 50_000);
         System.out.printf("Processed %d  drifts=%d  adaptations=%d%n",
                 n, ev.driftCount(), selector.events().size());
-        Path csv = Path.of("results", "avazu_ht_driftaware.csv");
+        Path csv = ProjectPaths.resultsDir().resolve("avazu_ht_driftaware.csv");
         ev.exportCsv(csv);
         System.out.println("CSV: " + csv);
     }
