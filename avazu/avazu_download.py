@@ -10,7 +10,7 @@ output_file = os.path.join(script_dir, 'avazu_train_1K.csv')
 start_time = time.time()
 
 try:
-    df_sample = pd.read_csv(input_file, nrows=1000) # # to save RAM, we have read only the first million rows, starting from top
+    df_sample = pd.read_csv(input_file, nrows=1_000_000) # # to save RAM, we have read only the first million rows, starting from top
     
     print("\nBeginning of the stream:")
     print(df_sample[['id', 'click', 'hour']].head())
