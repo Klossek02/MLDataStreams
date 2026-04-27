@@ -108,6 +108,17 @@ public class StaticTopKSelector implements FeatureSelector {
         return selectedSet;
     }
 
+    public void finishWarmup() {
+        if (ready) {
+            return;
+        }
+        if (warmup.isEmpty()) {
+            forceWarmupHeader();
+        } else {
+            computeRanking();
+        }
+    }
+
     @Override
     public String getName() {
         return "StaticTopK[k=" + topK + ",warmup=" + warmupSize + "]";

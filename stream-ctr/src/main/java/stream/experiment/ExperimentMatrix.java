@@ -105,8 +105,10 @@ public class ExperimentMatrix {
             sel.observe(ins, (int) ins.classValue());
             n++;
         }
+        sel.finishWarmup();
         if (!sel.isReady()) {
-            throw new IllegalStateException("StaticTopK warmup failed");
+            throw new IllegalStateException(
+                    "StaticTopK warmup failed after " + n + " / " + warmup + " instances");
         }
         return sel;
     }

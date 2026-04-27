@@ -6,6 +6,7 @@ import stream.evaluation.AccuracyMetric;
 import stream.evaluation.LogLossMetric;
 import stream.evaluation.PrequentialEvaluator;
 import stream.evaluation.WindowedMetric;
+import stream.config.ProjectPaths;
 import stream.model.HoeffdingTreeModel;
 import stream.model.StreamModel;
 import stream.provider.ArffStreamProvider;
@@ -22,7 +23,7 @@ public class SmokeTestFeatures {
     public static void main(String[] args) throws IOException {
         String arffPath = (args.length > 0)
                 ? args[0]
-                : "/home/kubog/MLDataStreams/avazu/data/avazu_hashed_100.arff";
+                : ProjectPaths.avazuHashedArff();
         long limit = (args.length > 1) ? Long.parseLong(args[1]) : 30_000L;
 
         System.out.println("=== Test 1: InfoGain ranking on 5k Avazu warmup ===");
@@ -75,8 +76,10 @@ public class SmokeTestFeatures {
             sel.observe(ins, (int) ins.classValue());
             n++;
         }
+        sel.finishWarmup();
         if (!sel.isReady()) {
-            throw new IllegalStateException("StaticTopK warmup failed");
+            throw new IllegalStateException(
+                    "StaticTopK warmup failed after " + n + " / " + warmup + " instances");
         }
         System.out.println("Static pre-warmed selected: " + sel.getSelectedIndices());
         return sel;
@@ -113,7 +116,7 @@ public class SmokeTestFeatures {
                 tag, n, acc, ll, wAcc, (t1 - t0),
                 selector.getSelectedIndices() == null ? -1 : selector.getSelectedIndices().size());
 
-        Path csv = Path.of("results", "avazu_ht_" + tag + ".csv");
+        Path csv = ProjectPaths.resultsDir().resolve("avazu_ht_" + tag + ".csv");
         ev.exportCsv(csv);
         System.out.println("  CSV: " + csv);
     }
