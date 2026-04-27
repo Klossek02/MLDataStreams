@@ -4,6 +4,7 @@ import stream.drift.DriftDetector;
 import stream.evaluation.Metric;
 import stream.evaluation.PrequentialEvaluator;
 import stream.features.FeatureSelector;
+import stream.features.OnlineRankingSelector;
 import stream.model.StreamModel;
 import stream.provider.StreamProvider;
 
@@ -63,6 +64,12 @@ public class ExperimentRunner {
         }
         if (exp.selectorFactory() != null) {
             FeatureSelector sel = exp.selectorFactory().get();
+            if (sel instanceof OnlineRankingSelector ors) {
+                ors.withReinitListener((newHeader, newSelected) -> {
+                    System.out.println("  [reinit] online selected=" + newSelected);
+                    model.initialize(newHeader);
+                });
+            }
             ev.withFeatureSelector(sel);
         }
         if (exp.detectorFactory() != null) {

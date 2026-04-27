@@ -143,11 +143,11 @@ public class DriftAwareSrpModel implements StreamModel {
                 subspaceManager.adaptSubspaces(weakFeatures, strongFeatures,
                         minWeakOverlap, resetRatio);
 
-        if (res.modelsToReset().isEmpty()) {
+        if (res.modelsChanged().isEmpty()) {
             return;
         }
 
-        for (int idx : res.modelsToReset()) {
+        for (int idx : res.modelsChanged()) {
             int[] sorted = sortedFromSet(subspaceManager.subspace(idx));
             Instances subHeader = InstanceFilter.createFilteredHeader(originalHeader, sorted);
             StreamModel fresh = baseFactory.get();
@@ -156,7 +156,9 @@ public class DriftAwareSrpModel implements StreamModel {
             sortedSubspaces.set(idx, sorted);
             subspaceHeaders.set(idx, subHeader);
         }
-        weightManager.onModelsReset(res.modelsToReset());
+        if (!res.modelsToReset().isEmpty()) {
+            weightManager.onModelsReset(res.modelsToReset());
+        }
         lastAdaptationAt = instancesSeen;
     }
 
