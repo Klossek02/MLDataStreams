@@ -4,6 +4,7 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -35,6 +36,13 @@ public class StaticTopKSelector implements FeatureSelector {
 
     @Override
     public void initialize(Instances header) {
+        if (ready && selectedSorted != null) {
+            validateSelection(header);
+            this.originalHeader = header;
+            this.warmup.clear();
+            this.filtered = InstanceFilter.createFilteredHeader(header, selectedSorted);
+            return;
+        }
         this.originalHeader = header;
         this.warmup.clear();
         this.ready = false;
@@ -78,8 +86,6 @@ public class StaticTopKSelector implements FeatureSelector {
     @Override
     public Instances filteredHeader() {
         if (!ready) {
-            warmup.add(null);
-            warmup.remove(warmup.size() - 1);
             forceWarmupHeader();
         }
         return filtered;
@@ -95,7 +101,7 @@ public class StaticTopKSelector implements FeatureSelector {
             if (i == classIdx) continue;
             picked[p++] = i;
         }
-        java.util.Arrays.sort(picked);
+        Arrays.sort(picked);
         this.selectedSorted = picked;
         this.selectedSet = new LinkedHashSet<>();
         for (int x : picked) selectedSet.add(x);
@@ -126,5 +132,20 @@ public class StaticTopKSelector implements FeatureSelector {
 
     public boolean isReady() {
         return ready;
+    }
+
+    private void validateSelection(Instances header) {
+        int classIdx = header.classIndex();
+        for (int idx : selectedSorted) {
+            if (idx < 0 || idx >= header.numAttributes()) {
+                throw new IllegalStateException(
+                        "Pre-warmed feature index " + idx
+                                + " is outside the new header");
+            }
+            if (idx == classIdx) {
+                throw new IllegalStateException(
+                        "Pre-warmed selection contains the class attribute");
+            }
+        }
     }
 }

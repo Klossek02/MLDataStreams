@@ -4,6 +4,8 @@ import com.yahoo.labs.samoa.instances.Instance;
 import com.yahoo.labs.samoa.instances.Instances;
 import moa.streams.generators.AgrawalGenerator;
 
+import java.util.Random;
+
 public class AgrawalStreamProvider implements StreamProvider {
 
     private final int totalInstances;
@@ -15,6 +17,7 @@ public class AgrawalStreamProvider implements StreamProvider {
 
     private AgrawalGenerator genBefore;
     private AgrawalGenerator genAfter;
+    private Random driftRandom;
     private long produced;
 
     public AgrawalStreamProvider(int totalInstances, int driftPoint,
@@ -81,7 +84,7 @@ public class AgrawalStreamProvider implements StreamProvider {
                 inst = genAfter.nextInstance().getData();
             } else {
                 double progress = (produced - start) / (double) driftWidth;
-                boolean useAfter = Math.random() < progress;
+                boolean useAfter = driftRandom.nextDouble() < progress;
                 inst = useAfter
                         ? genAfter.nextInstance().getData()
                         : genBefore.nextInstance().getData();
@@ -95,6 +98,7 @@ public class AgrawalStreamProvider implements StreamProvider {
     public void restart() {
         this.genBefore = buildGenerator(functionBefore);
         this.genAfter = buildGenerator(functionAfter);
+        this.driftRandom = new Random(seed);
         this.produced = 0;
     }
 
