@@ -10,7 +10,8 @@ import java.util.Set;
 
 public class SubspaceManager {
 
-    public record AdaptationResult(List<Integer> modelsToReset,
+    public record AdaptationResult(List<Integer> modelsChanged,
+                                   List<Integer> modelsToReset,
                                    List<Set<Integer>> oldSubspaces,
                                    List<Set<Integer>> newSubspaces) {}
 
@@ -68,6 +69,7 @@ public class SubspaceManager {
                                            Set<Integer> strongFeatures,
                                            int minOverlap,
                                            double resetRatio) {
+        List<Integer> modelsChanged = new ArrayList<>();
         List<Integer> modelsToReset = new ArrayList<>();
         List<Set<Integer>> oldList = new ArrayList<>();
         List<Set<Integer>> newList = new ArrayList<>();
@@ -96,14 +98,16 @@ public class SubspaceManager {
                 sub.addAll(shrink.subList(0, subspaceSize));
             }
 
+            modelsChanged.add(m);
+            oldList.add(oldSub);
+            newList.add(new LinkedHashSet<>(sub));
+
             double overlapRatio = (double) overlap.size() / Math.max(1, oldSub.size());
             if (overlapRatio >= resetRatio) {
                 modelsToReset.add(m);
-                oldList.add(oldSub);
-                newList.add(new LinkedHashSet<>(sub));
             }
         }
-        return new AdaptationResult(modelsToReset, oldList, newList);
+        return new AdaptationResult(modelsChanged, modelsToReset, oldList, newList);
     }
 
     public AdaptationResult adaptSubspaces(Set<Integer> weakFeatures,

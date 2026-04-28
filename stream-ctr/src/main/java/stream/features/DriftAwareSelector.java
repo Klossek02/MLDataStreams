@@ -126,6 +126,9 @@ public class DriftAwareSelector implements FeatureSelector {
     }
 
     public void onDriftDetected() {
+        if (awaitingPostDrift) {
+            return;
+        }
         if (recentBuffer.size() < Math.max(2, windowSize / 4)) {
             return;
         }

@@ -29,10 +29,13 @@ public class ResultExporter {
                 Set<Long> driftIdx = new LinkedHashSet<>();
                 for (DriftEvent e : r.driftEvents()) driftIdx.add(e.instanceIndex());
 
+                long previousBucket = 0;
                 for (EvalRecord rec : r.history()) {
                     long bucket = rec.instanceIndex();
+                    long bucketStart = previousBucket;
+                    long bucketEnd = bucket;
                     boolean drift = driftIdx.stream()
-                            .anyMatch(d -> d >= bucket - r.history().size() && d <= bucket);
+                            .anyMatch(d -> d >= bucketStart && d < bucketEnd);
                     w.write(esc(r.datasetName()) + "," + esc(r.modelName()) + ","
                             + esc(r.selectorName()) + "," + bucket);
                     for (String m : metricNames) {
@@ -43,6 +46,7 @@ public class ResultExporter {
                     w.write(",");
                     w.write(drift ? "true" : "false");
                     w.newLine();
+                    previousBucket = bucket;
                 }
             }
         }
