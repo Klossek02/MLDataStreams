@@ -26,7 +26,7 @@ Install the required Python packages:
 pip install -r requirements.txt
 ```
 
-### Contributors
+## Contributors
 * **Aleksandra Kłos** - EDA, data preprocessing, baseline evaluation 
 * **Hubert Jaczyński** - Analytics, final evaluation
 * **Jakub Oganowski** - Algorithm implementation in Java
