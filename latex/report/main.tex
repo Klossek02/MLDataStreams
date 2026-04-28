@@ -303,8 +303,10 @@ Furthermore, the recovery phase, in which the error slowly returns to a stable b
 The implementation in the repository follows the standard streaming-learning
 loop: each instance is read in chronological order, transformed into a fixed
 feature representation, predicted by the current model, scored, and only then
-used for training. This is important because it prevents information leakage
-from future observations into the current prediction.
+used for training. This protocol — known as prequential or test-then-train
+evaluation \cite{gama2014survey} — prevents information leakage from future
+observations into the current prediction and provides an unbiased estimate of
+the model's behaviour as a function of stream position.
 
 \begin{figure}[H]
 \centering
@@ -332,76 +334,148 @@ from future observations into the current prediction.
 \label{fig:system_architecture}
 \end{figure}
 
-The Java implementation is organized around several groups of classes. Stream
-providers load either ARFF-based real datasets or the synthetic Agrawal stream.
-Model wrappers expose a common interface for Hoeffding Tree, Hoeffding Adaptive
-Tree, SRP, and the custom drift-aware SRP model. Feature selectors implement no
-selection, static top-K selection, periodic online ranking, and drift-aware
-selection. The prequential evaluator coordinates prediction, metric updates,
-drift detection, model training, and CSV logging.
+The Java implementation is organised around five groups of classes. Stream
+providers load either ARFF-based real datasets or the synthetic Agrawal stream
+through a unified \texttt{StreamProvider} interface. Model wrappers expose a
+common \texttt{StreamModel} contract for Hoeffding Tree, Hoeffding Adaptive
+Tree, SRP, and the proposed drift-aware SRP model. Feature selectors implement
+no selection, static top-K selection, periodic online ranking, and the
+drift-aware selection introduced in this work. The prequential evaluator
+coordinates prediction, metric updates, drift detection, model training, and
+CSV logging in a single integration loop. Decoupling the components through
+interfaces makes it possible to evaluate any combination of provider, selector
+and model without modifying the evaluator itself.
 
 \subsection{Baseline models and feature selectors}
 
-The baseline model set contains Hoeffding Tree, Hoeffding Adaptive Tree, and
-Streaming Random Patches. Hoeffding Tree is the basic incremental tree model for
-high-speed streams \cite{hulten2001mining}. HAT extends the tree with adaptive
-drift handling, while SRP is an ensemble method designed for evolving streams
-\cite{gomes2019streaming}. In the repository, the SRP baseline uses 10 trees and
-a 60\% random subspace setting.
+The baseline model set contains Hoeffding Tree (HT), Hoeffding Adaptive Tree
+(HAT), and Streaming Random Patches (SRP). HT is the basic incremental tree
+model for high-speed streams \cite{hulten2001mining} and serves as a
+non-adaptive reference. HAT extends the tree with ADWIN-based monitors at
+internal nodes and replaces obsolete subtrees with alternative subtrees as the
+underlying concept changes. SRP is an ensemble method designed for evolving
+streams \cite{gomes2019streaming}; it combines online bagging with random
+feature subspaces and per-learner drift detection. In the repository, the SRP
+baseline uses 10 trees and a 60\% random subspace setting, consistent with the
+default values used by the original authors.
 
-Three baseline feature-selection strategies were used:
+Three baseline feature-selection strategies were implemented and evaluated:
 
 \begin{itemize}
-    \item \textbf{No selector}: all attributes are passed to the model.
+    \item \textbf{No selector}: all attributes are passed to the model. This
+    is the natural reference for measuring whether feature selection helps at
+    all on a given stream.
     \item \textbf{Static top-K}: Information Gain is estimated on a warm-up
-    segment and the selected features remain fixed.
+    segment of 5,000 instances and the selected features remain fixed for the
+    rest of the stream.
     \item \textbf{Online ranking}: Information Gain is recomputed on a sliding
-    window every 5,000 instances.
+    window of 5,000 instances every 5,000 instances. The selected feature set
+    therefore evolves with the stream, but only on a fixed schedule.
 \end{itemize}
 
-These baselines allow us to separate the effect of the classifier from the
-effect of dynamic feature selection.
+These baselines isolate the contribution of dynamic feature selection from
+the contribution of the classifier itself, and provide a comparison point for
+the proposed drift-aware variants.
 
 \subsection{Drift-aware feature selection}
 
-The custom drift-aware selector is triggered by ADWIN. When a drift alert
-appears, the selector keeps a pre-drift window, then collects a post-drift
-window. Information Gain is computed on both windows. Features whose score
-decreases are treated as weakened features, while features whose score
-increases are treated as strengthened features. This mechanism directly targets
-feature drift, rather than only concept drift.
+The proposed drift-aware selector replaces the periodic schedule of the online
+ranking baseline with an event-driven adaptation triggered by ADWIN. The key
+observation is that the meaningful signal for feature selection is not the
+absolute Information Gain at a single point in time, but rather the change in
+Information Gain caused by the drift itself: features whose predictive value
+has dropped should be replaced precisely by features whose predictive value
+has risen.
+
+The selector maintains a sliding buffer of recent instances. While no drift
+is signalled, the buffer simply rolls forward. When ADWIN raises a drift
+alert, the selector freezes the current buffer as the pre-drift snapshot and
+records the corresponding Information Gain values $IG_{before}$. It then
+continues to consume instances normally for one further window, accumulating
+post-drift data. Once the post-drift window is full, $IG_{after}$ is computed
+and the per-feature change is taken as
+\[
+\Delta IG_i \;=\; IG_{after,i} - IG_{before,i}.
+\]
+Features for which $\Delta IG_i$ exceeds a positive threshold are treated as
+strengthened; features for which it falls below the symmetric negative
+threshold are treated as weakened. The new selected set is obtained from the
+current top-$K$ ranking by adding strengthened candidates and removing
+weakened ones, with a length correction that brings the result back to size
+$K$ if either operation overshoots.
 
 For Avazu and Criteo, the selector keeps 20 features. For Agrawal, where the
 feature space is small, it keeps 5 features. Real CTR experiments use a
-5,000-instance comparison window and a 0.005 Information Gain change threshold.
-Agrawal experiments use a smaller 800-instance window and a 0.05 threshold.
+5,000-instance comparison window and a 0.005 Information Gain change
+threshold; Agrawal experiments use a smaller 800-instance window and a
+threshold of 0.05, reflecting the larger and more abrupt swings induced by
+the synthetic generator.
 
 \subsection{Drift-Aware SRP}
 
-The proposed model, Drift-Aware SRP (DASRP), adapts the SRP idea by making
-ensemble subspaces responsive to feature drift. Instead of resetting every
-learner when drift is detected, DASRP modifies only learners whose subspaces
-contain weakened features.
+The proposed model, Drift-Aware SRP (DASRP), extends the SRP framework along
+two complementary axes. First, ensemble subspaces become responsive to
+feature drift instead of being fixed at construction time. Second, members
+whose subspaces are reconstructed do not vote at full strength immediately:
+the ensemble keeps track of how much fresh evidence each member has seen and
+weighs its vote accordingly during recovery. Both mechanisms are designed to
+avoid the failure mode of a naive reset, in which the ensemble loses all
+accumulated knowledge on every drift event.
 
-The adaptation procedure is as follows:
+The implementation is split between two helper classes used by DASRP. The
+\texttt{SubspaceManager} owns the per-learner feature subsets and exposes an
+\texttt{adaptSubspaces} operation that consumes the weakened and strengthened
+feature sets produced by the drift-aware selector. For each learner, it
+counts the number of weakened features inside its subspace; learners below a
+configurable overlap threshold are left untouched, since their predictive
+basis was not affected by the drift. Learners above the threshold have their
+weak features replaced, preferring strengthened candidates and falling back
+to neutral features when the strengthened pool is too small. The fraction of
+the original subspace that had to be replaced is then compared against a
+reset ratio: subspaces that lost more than this fraction are flagged for full
+reinitialisation, since the surviving learner state would be inconsistent
+with its new feature set.
+
+The \texttt{WeightManager} mirrors the reset decision on the voting side.
+Members reported by the subspace manager as reset have their weight reduced
+to a configurable value (0.3 in our experiments) and recover linearly toward
+the normal weight 1.0 at a fixed rate per training instance. Aggregation is
+performed as a weighted average,
+\[
+\hat{p} \;=\; \frac{\sum_{i=1}^{N} w_i \, p_i}{\sum_{i=1}^{N} w_i},
+\]
+so that freshly reset members influence the ensemble in proportion to the
+amount of new data they have processed. With a recovery rate of 0.001 per
+instance, full recovery takes roughly 700 instances, which is comparable to
+the data volume needed by a Hoeffding tree to perform its first split.
+
+The adaptation cycle ties everything together as follows:
 
 \begin{enumerate}
     \item ADWIN detects a change in the online error stream.
     \item The drift-aware selector compares Information Gain before and after
-    the drift.
+    the drift and emits the weakened and strengthened feature sets.
     \item The \texttt{SubspaceManager} removes weak features from affected
     subspaces and fills the gaps using strengthened features whenever possible.
-    \item Learners whose subspace changed too strongly are reset.
-    \item The \texttt{WeightManager} temporarily reduces the vote weight of
-    reset learners and gradually restores it during recovery.
+    \item Learners whose subspace changed beyond the reset ratio are
+    reinitialised on the new sub-header.
+    \item The \texttt{WeightManager} reduces the vote weight of reset learners
+    and gradually restores it during the subsequent training instances.
 \end{enumerate}
 
-On real CTR datasets, DASRP uses 10 base Hoeffding-tree learners, subspaces of
-size 20, ADWIN with \(\delta=0.002\), reset weight 0.3, recovery rate 0.001,
-and a reset ratio of 0.5. On Agrawal, the configuration uses subspaces of size
-4, ADWIN with \(\delta=0.001\), reset weight 0.5, and recovery rate 0.005. The
-different settings reflect the much smaller feature space of the synthetic
-stream.
+DASRP uses online bagging with $\lambda=1$ rather than
+the $\lambda=6$ value of the reference SRP implementation; this reduces the
+amplification of repeated training and keeps the focus of the experiments on
+the contribution of the drift-aware components. Drift detection is handled at
+the ensemble level by the external ADWIN monitor rather than by per-learner
+detectors, which keeps the adaptation policy concentrated in a single place.
+
+On real CTR datasets, DASRP uses 10 base Hoeffding-tree learners, subspaces
+of size 20, ADWIN with $\delta=0.002$, reset weight 0.3, recovery rate
+0.001, and a reset ratio of 0.5. On Agrawal, the configuration uses subspaces
+of size 4, ADWIN with $\delta=0.001$, reset weight 0.5, and recovery rate
+0.005. The different settings reflect the much smaller feature space and
+sharper drift dynamics of the synthetic stream.
 
 \section{Final evaluation}
 
@@ -485,8 +559,8 @@ above 1 mean the baseline was slower than DASRP.}
 On Avazu, SRP with static top-K took approximately 21 times the DASRP runtime,
 and SRP with online ranking took approximately 10.8 times the DASRP runtime. HT
 was faster than DASRP, but it was much worse in final Log Loss. This indicates
-that DASRP is not the fastest method overall, but it balances prediction
-quality with runtime among the competitive ensemble methods.
+that DASRP is not the fastest method overall, but it provides an attractive
+quality/runtime trade-off among the competitive ensemble methods.
 
 \begin{figure}[H]
 \centering
@@ -494,6 +568,14 @@ quality with runtime among the competitive ensemble methods.
 \caption{Absolute runtime comparison for 200,000-instance runs. The vertical
 axis is logarithmic.}
 \label{fig:eval_runtime_comparison}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{figures/evaluation/eval_real_efficiency_tradeoff.png}
+\caption{Quality/runtime trade-off on real CTR streams. Lower and further left
+is better.}
+\label{fig:eval_efficiency_tradeoff}
 \end{figure}
 
 \subsection{Synthetic Agrawal results}
