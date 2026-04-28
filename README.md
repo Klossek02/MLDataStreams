@@ -30,4 +30,5 @@ pip install -r requirements.txt
 * **Aleksandra Kłos** - EDA, data preprocessing, baseline evaluation 
 * **Hubert Jaczyński** - Analytics, final evaluation
 * **Jakub Oganowski** - Algorithm implementation in Java
-Each of us has been somehow involved in the concept drift detection. 
+
+# Each of us has been somehow involved in the concept drift detection. 
