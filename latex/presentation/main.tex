@@ -51,24 +51,12 @@
             \item High velocity
             \item High dimensionality 
             \item Constant retraining from scratch is too expensive. Models must update on the fly.
+            \item Concept drift \cite{gama2014survey}, feature drift \cite{li2013group}
+            \item Adaptation gap
         \end{itemize}
         \end{block}
     \end{column}
 \end{columns}
-\end{frame}
-
-\begin{frame}{Challenge of non-stationarity}
-    \begin{block}{Concept drift \cite{gama2014survey}}
-        \small Data distributions change over time. What a user liked yesterday might not be relevant today.
-    \end{block}
-
-    \begin{block}{Feature drift \cite{li2013group}}
-        \small The subset of features most relevant to the model changes dynamically. 
-    \end{block}
-
-    \begin{alertblock}{The problem}
-        \small Standard algorithms, like decision trees, fail to keep pace with these changes. This creates an \textbf{adaptation gap} -- a period of significantly degraded performance while the model slowly learns the new distribution.
-    \end{alertblock}
 \end{frame}
 
 \begin{frame}{Proposed innovation}
@@ -371,6 +359,144 @@
         \end{block}
     \end{column}
 \end{columns}
+\end{frame}
+
+% -- DODATKOWE SLAJDY: ARCHITEKTURA I METODOLOGIA
+
+\begin{frame}{Prequential evaluation loop}
+\begin{columns}[T]
+    \begin{column}{0.52\textwidth}
+        \begin{block}{Test-then-train protocol}
+        \small
+        For every stream instance, the model first predicts the label, then the prediction is scored, and only after that the same instance is used for training.
+        \end{block}
+
+        \vspace{0.15cm}
+        \begin{block}{Why it matters}
+        \small
+        This avoids leakage from future observations and gives a time-resolved estimate of model quality under changing stream conditions.
+        \end{block}
+    \end{column}
+
+    \begin{column}{0.48\textwidth}
+        \small
+        \begin{enumerate}
+            \item Read next chronological instance.
+            \item Apply feature transformation and selection.
+            \item Predict click probability.
+            \item Update accuracy, log-loss and AUC.
+            \item Send error signal to ADWIN.
+            \item Train model on the same instance.
+        \end{enumerate}
+    \end{column}
+\end{columns}
+\end{frame}
+
+
+\begin{frame}{Implemented components}
+\begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+        \begin{block}{Data and models}
+        \small
+        \begin{itemize}
+            \item \textbf{Streams}: Avazu, Criteo, Agrawal.
+            \item \textbf{Providers}: unified stream interface.
+            \item \textbf{Models}: HT, HAT, SRP, DASRP.
+            \item \textbf{Evaluation}: common prequential runner.
+        \end{itemize}
+        \end{block}
+    \end{column}
+
+    \begin{column}{0.5\textwidth}
+        \begin{block}{Selection and adaptation}
+        \small
+        \begin{itemize}
+            \item No feature selection.
+            \item Static top-K after warm-up.
+            \item Periodic online Information Gain ranking.
+            \item Drift-aware reselection triggered by ADWIN.
+            \item Selective subspace repair in DASRP.
+        \end{itemize}
+        \end{block}
+    \end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{block}{Design goal}
+\small
+All providers, selectors and models expose common interfaces, so every configuration can be evaluated in the same loop without changing the evaluator.
+\end{block}
+\end{frame}
+
+
+\begin{frame}{Drift-aware feature selection}
+\begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+        \begin{block}{Before/after comparison}
+        \small
+        Instead of updating features on a fixed schedule, the selector waits for an ADWIN alarm and compares feature relevance before and after the detected drift.
+        \end{block}
+
+        \[
+        \Delta IG_i = IG_{after,i} - IG_{before,i}
+        \]
+    \end{column}
+
+    \begin{column}{0.52\textwidth}
+        \begin{block}{Decision rule}
+        \small
+        \begin{itemize}
+            \item Positive $\Delta IG$ means that a feature became stronger.
+            \item Negative $\Delta IG$ means that a feature lost relevance.
+            \item Strengthened features are added to the active set.
+            \item Weakened features are removed from the active set.
+            \item The final subset is corrected back to size $K$.
+        \end{itemize}
+        \end{block}
+    \end{column}
+\end{columns}
+
+\vspace{0.15cm}
+\begin{block}{Main intuition}
+\small
+The selector reacts to changes in feature usefulness caused by drift, not only to absolute feature rankings at one point in time.
+\end{block}
+\end{frame}
+
+
+\begin{frame}{Model reaction to feature reselection}
+\begin{columns}[T]
+    \begin{column}{0.48\textwidth}
+        \begin{block}{HT / HAT path}
+        \small
+        \begin{itemize}
+            \item Feature change creates a new input header.
+            \item The whole model is reset.
+            \item Previous tree structure is discarded.
+            \item Learning starts again from an empty model.
+        \end{itemize}
+        \end{block}
+    \end{column}
+
+    \begin{column}{0.52\textwidth}
+        \begin{block}{DASRP path}
+        \small
+        \begin{itemize}
+            \item Each ensemble member owns its own subspace.
+            \item Only subspaces containing weak features are changed.
+            \item Only heavily affected learners are rebuilt.
+            \item Reset learners vote with reduced weight.
+            \item Their weight gradually returns to 1.0.
+        \end{itemize}
+        \end{block}
+    \end{column}
+\end{columns}
+
+\vspace{0.2cm}
+\begin{block}{Key difference}
+\small
+Monolithic models lose all accumulated knowledge after reselection, while DASRP preserves unaffected learners and adapts only the damaged parts of the ensemble.
+\end{block}
 \end{frame}
 
 % --- CZĘŚĆ HUBIEGO 
