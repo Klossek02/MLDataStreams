@@ -32,6 +32,13 @@ Install the required Python packages:
 pip install -r requirements.txt
 ```
 
+## How to run the code and reproduce the results:
+1. Download the Avazu and Criteo datasets from Kaggle and place them in the respective `avazu/` and `criteo/` directories.
+2. Run the avazu_download.py and criteo_download.py scripts to preprocess the datasets.
+3. Run the feature_hashing.py scripts for criteo and avazu to perform feature hashing.
+4. Run MLDataStreams\stream-ctr\src\main\java\stream\Main.java file to execute the proposed algorithm and baseline evaluations in MOA.
+5. Use the evaluation_plots.py script to visualize the results from MOA output files.
+
 ## Contributors
 * **Aleksandra Kłos** - EDA, data preprocessing, baseline evaluation 
 * **Hubert Jaczyński** - Analytics, final evaluation, fixes in algorithm implementation
