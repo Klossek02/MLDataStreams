@@ -12,6 +12,8 @@
 \usepackage{xurl}
 \usepackage{subcaption}
 \usepackage{float}
+\usepackage[T1]{fontenc}
+\DeclareTextFontCommand{\texttthyphen}{\ttfamily\hyphenchar\font=`\-}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning}
 \usepackage{csquotes}
@@ -423,7 +425,7 @@ avoid the failure mode of a naive reset, in which the ensemble loses all
 accumulated knowledge on every drift event.
 
 The implementation is split between two helper classes used by DASRP. The
-\texttt{SubspaceManager} owns the per-learner feature subsets and exposes an
+\texttthyphen{SubspaceManager} owns the per-learner feature subsets and exposes an
 \texttt{adaptSubspaces} operation that consumes the weakened and strengthened
 feature sets produced by the drift-aware selector. For each learner, it
 counts the number of weakened features inside its subspace; learners below a
