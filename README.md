@@ -6,6 +6,12 @@ This repository contains the code, data analysis, and documentation for the proj
 
 The primary objective of this project is to address concept drift and feature drift in highly dimensional, sparse, and imbalanced data streams. We propose a novel extension to the streaming random patches (SRP) algorithm by integrating dynamic online feature selection (OFS) to minimize the adaptation gap ($t_{recovery}$) and reduce Log Loss.
 
+# Datasets downloaded from Kaggle:
+1. [Avazu Click-Through Rate Prediction](https://www.kaggle.com/c/avazu-ctr-prediction/data) - A large-scale dataset containing click-through data for mobile ads, with 10 million instances and 22 categorical features.
+2. [Criteo Display Advertising Challenge](https://www.kaggle.com/datasets/mrkmakr/criteo-dataset) - A dataset with 45 million instances and 13 numerical and 26 categorical features, used for predicting click-through rates in display advertising.
+
+Both of datasets that need to be downloaded are train sets. 
+
 ## Repository structure
 
 * `avazu/` - Scripts and data processing for the Avazu dataset.
@@ -28,7 +34,7 @@ pip install -r requirements.txt
 
 ## Contributors
 * **Aleksandra Kłos** - EDA, data preprocessing, baseline evaluation 
-* **Hubert Jaczyński** - Analytics, final evaluation
+* **Hubert Jaczyński** - Analytics, final evaluation, fixes in algorithm implementation
 * **Jakub Oganowski** - Algorithm implementation in Java
 
 ### Each of us has been somehow involved in the concept drift detection. 

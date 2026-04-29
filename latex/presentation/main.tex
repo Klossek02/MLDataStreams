@@ -57,24 +57,6 @@
 \end{columns}
 \end{frame}
 
-
-\begin{frame}{Challenge of non-stationarity}
-    \begin{block}{Concept drift \cite{gama2014survey}}
-        \small Data distributions change over time. What a user liked yesterday might not be relevant today.
-    \end{block}
-
-    \begin{block}{Feature drift \cite{li2013group}}
-        \small The subset of features most relevant to the model changes dynamically. 
-    \end{block}
-
-    \begin{alertblock}{The problem}
-        \small Standard algorithms, like decision trees, fail to keep pace with these changes. This creates an \textbf{adaptation gap} -- a period of significantly degraded performance while the model slowly learns the new distribution.
-    \end{alertblock}
-\end{frame}
-
-
-
-
 \begin{frame}{Proposed innovation}
     \begin{itemize}
         \item Streaming random patches (SRP) \cite{gomes2019streaming}. One of the most effective ensemble solutions for evolving data streams.
