@@ -21,17 +21,21 @@ df = pd.read_csv(input_file, sep='\t', names=col_names, nrows=1_000_000)
 num_cols = [f'I{i}' for i in range(1, 14)]
 cat_cols = [f'C{i}' for i in range(1, 27)]
 
-df[num_cols] = df[num_cols].fillna(0)
 df[cat_cols] = df[cat_cols].fillna('empty')
 
 rolling_cols = ['I1', 'I2', 'I3', 'I4', 'I5']
 
+# rolling stats computed on raw data — pandas rolling skips NaN naturally,
+# so missing values do not distort the window statistics
 for col in rolling_cols:
     df[f'{col}_rolling_mean'] = df[col].shift(1).rolling(window, min_periods=1).mean()
     df[f'{col}_rolling_std'] = df[col].shift(1).rolling(window, min_periods=1).std()
 
 for col in rolling_cols:
     df[f'{col}_delta'] = df[col] - df[f'{col}_rolling_mean']
+
+# imputing NaN in original numerical columns only after rolling stats are done
+df[num_cols] = df[num_cols].fillna(0)
 
 window_num_cols = []
 for col in rolling_cols:
