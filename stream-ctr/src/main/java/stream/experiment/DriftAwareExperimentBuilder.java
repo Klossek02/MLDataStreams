@@ -8,6 +8,8 @@ import stream.model.HoeffdingTreeModel;
 import stream.model.StreamModel;
 import stream.provider.AgrawalStreamProvider;
 import stream.provider.ArffStreamProvider;
+import stream.provider.LedStreamProvider;
+import stream.provider.RandomRbfStreamProvider;
 import stream.provider.StreamProvider;
 
 import java.util.ArrayList;
@@ -198,6 +200,42 @@ public class DriftAwareExperimentBuilder {
                 5, 800, 0.05,
                 10, 4,
                 0.001,
+                2,
+                0.5, 0.005,
+                0.5, 0,
+                5_000,
+                "default"));
+
+        specs.add(new Spec("agrawal_noisy",
+                () -> new AgrawalStreamProvider(200_000, 100_000, 0, 1, 3, 1, 0.10),
+                200_000L,
+                5, 800, 0.05,
+                10, 4,
+                0.001,
+                2,
+                0.5, 0.005,
+                0.5, 0,
+                5_000,
+                "default"));
+
+        specs.add(new Spec("led_irrelevant",
+                () -> new LedStreamProvider(200_000, 100_000, 3, 7, 1),
+                200_000L,
+                7, 1_000, 0.05,
+                10, 7,
+                0.002,
+                2,
+                0.5, 0.005,
+                0.5, 0,
+                5_000,
+                "default"));
+
+        specs.add(new Spec("rbf_highdim",
+                () -> new RandomRbfStreamProvider(200_000, 100_000, 100, 2, 50, 1, 2),
+                200_000L,
+                20, 5_000, 0.01,
+                10, 20,
+                0.002,
                 2,
                 0.5, 0.005,
                 0.5, 0,

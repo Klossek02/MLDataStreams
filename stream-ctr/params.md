@@ -5,13 +5,16 @@
 ### 1. Instance limits per dataset
 
 ```java
-new Dataset("avazu",    () -> new ArffStreamProvider(avazuPath), 50_000L),   // ← here
-new Dataset("criteo",   () -> new ArffStreamProvider(criteoPath), 50_000L),  // ← here
-new Dataset("agrawal_sudden",  ..., 20_000L),                                // ← here
-new Dataset("agrawal_gradual", ..., 20_000L),                                // ← here
+new Dataset("avazu",            () -> new ArffStreamProvider(avazuPath), 200_000L),      // here
+new Dataset("criteo",           () -> new ArffStreamProvider(criteoPath), 200_000L),     // here
+new Dataset("agrawal_sudden",   ..., 200_000L),                                          // here
+new Dataset("agrawal_gradual",  ..., 200_000L),                                          // here
+new Dataset("agrawal_noisy",    () -> new AgrawalStreamProvider(..., 0.10), 200_000L),   // here
+new Dataset("led_irrelevant",   () -> new LedStreamProvider(...), 200_000L),             // here
+new Dataset("rbf_highdim",      () -> new RandomRbfStreamProvider(...), 200_000L),       // here
 ```
 
-**What it does:** how many instances to process from the stream. For a full run change to `1_000_000L` (Avazu/Criteo) and `100_000L` (Agrawal).
+**What it does:** how many instances to process from the stream. The current experiment matrix uses `200_000L` for every dataset.
 
 ---
 
@@ -47,10 +50,12 @@ int topK = Math.max(2, Math.min(20, featureCount / 5));   // ← here
 **What it does:** how many features to keep after selection. `featureCount / 5` = 20% of features.
 
 | Dataset | featureCount | topK |
-|---------|-------------|------|
-| Avazu | 109 | 20 (capped) |
-| Criteo | 128 | 20 (capped) |
-| Agrawal | 9 | 2 (floor) |
+|---------|-------------:|-----:|
+| Avazu | 100 | 20 |
+| Criteo | 100 | 20 |
+| Agrawal variants | 9 | 2 |
+| LED irrelevant | 24 | 4 |
+| RBF highdim | 100 | 20 |
 
 To select more/fewer features, change `20` (upper cap) or `5` (divisor).
 
@@ -65,11 +70,8 @@ int warmup = (int) Math.min(5_000, d.limit() / 4);   // ← here
 **What it does:** how many instances to collect before StaticTopK selects features / before OnlineRanking starts re-ranking. Also used as the sliding window size in OnlineRanking.
 
 | Dataset | limit | warmup |
-|---------|-------|--------|
-| Avazu 50k | 50 000 | 5 000 |
-| Criteo 50k | 50 000 | 5 000 |
-| Agrawal | 20 000 | 5 000 |
-| Avazu 1M | 1 000 000 | 5 000 |
+|---------|------:|-------:|
+| Any current dataset | 200 000 | 5 000 |
 
 ---
 
@@ -125,7 +127,7 @@ More trees = better results, slower. 60% subspace is the standard in SRP literat
 
 ## RunDriftAwareExperiments — Additional Parameters
 
-These parameters are in `DriftAwareExperimentMatrix` or directly in constructors:
+These parameters are in `DriftAwareExperimentBuilder` or directly in constructors:
 
 ### 9. DriftAwareSelector — changeThreshold
 
@@ -176,14 +178,12 @@ int driftWarmup = d.name().startsWith("agrawal") ? 5_000 : 2_000;   // ← here
 
 ```java
 // ExperimentMatrix.build():
-new Dataset("avazu",    ..., 1_000_000L),       // was 50_000L
-new Dataset("criteo",   ..., 1_000_000L),       // was 50_000L
-new Dataset("agrawal_sudden",  ..., 100_000L),  // was 20_000L
-new Dataset("agrawal_gradual", ..., 100_000L),  // was 20_000L
-
-// Agrawal driftPoint accordingly:
-new AgrawalStreamProvider(100_000, 50_000, 1, 3)        // sudden
-new AgrawalStreamProvider(100_000, 50_000, 20_000, ...) // gradual
+new Dataset("agrawal_noisy",
+        () -> new AgrawalStreamProvider(200_000, 100_000, 0, 1, 3, 1, 0.10), 200_000L)
+new Dataset("led_irrelevant",
+        () -> new LedStreamProvider(200_000, 100_000, 3, 7, 1), 200_000L)
+new Dataset("rbf_highdim",
+        () -> new RandomRbfStreamProvider(200_000, 100_000, 100, 2, 50, 1, 2), 200_000L)
 ```
 
 All other parameters remain unchanged.

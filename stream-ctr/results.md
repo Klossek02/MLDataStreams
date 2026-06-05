@@ -16,12 +16,15 @@ ground-truth label (test-then-train protocol).
 
 ### 1.1 Datasets
 
-| Name              | Type       | Source                                | Instances | Features | Drift                                  |
-|-------------------|------------|---------------------------------------|----------:|---------:|----------------------------------------|
-| `avazu`           | Real CTR   | Avazu (hashed numeric features, ARFF) |     full  |  100 + 1 | Natural (unknown) drift                |
-| `criteo`          | Real CTR   | Criteo (numeric features, ARFF)       |     full  |  100 + 1 | Natural (unknown) drift                |
-| `agrawal_sudden`  | Synthetic  | MOA `AgrawalGenerator`                |    20 000 |    9 + 1 | Sudden drift @ 10 000 (fn 1 → 3)       |
-| `agrawal_gradual` | Synthetic  | MOA `AgrawalGenerator`                |    20 000 |    9 + 1 | Gradual drift, width 4 000 around 10k  |
+| Name               | Type       | Source                                  | Instances | Features | Drift                                      |
+|--------------------|------------|-----------------------------------------|----------:|---------:|--------------------------------------------|
+| `avazu`            | Real CTR   | Avazu (hashed numeric features, ARFF)   |   200 000 |  100 + 1 | Natural (unknown) drift                    |
+| `criteo`           | Real CTR   | Criteo (numeric features, ARFF)         |   200 000 |  100 + 1 | Natural (unknown) drift                    |
+| `agrawal_sudden`   | Synthetic  | MOA `AgrawalGenerator`                  |   200 000 |    9 + 1 | Sudden drift @ 100 000 (fn 1 -> 3)         |
+| `agrawal_gradual`  | Synthetic  | MOA `AgrawalGenerator`                  |   200 000 |    9 + 1 | Gradual drift, width 40 000 around 100k    |
+| `agrawal_noisy`    | Synthetic  | MOA `AgrawalGenerator`, perturb 10%     |   200 000 |    9 + 1 | Sudden drift @ 100 000 (fn 1 -> 3)         |
+| `led_irrelevant`   | Synthetic  | MOA `LEDGeneratorDrift`                 |   200 000 |   24 + 1 | Sudden drift @ 100 000 (attrs 3 -> 7)      |
+| `rbf_highdim`      | Synthetic  | MOA `RandomRBFGenerator` + drift stream |   200 000 |  100 + 1 | Sudden drift @ 100 000 (seed 1 -> 2)       |
 
 ### 1.2 Models
 
@@ -55,15 +58,15 @@ ground-truth label (test-then-train protocol).
 
 Two independent runners produce the full matrix:
 
-### 2.1 Baseline matrix — `RunExperiments` (36 experiments)
+### 2.1 Baseline matrix — `RunExperiments` (63 experiments)
 
-`4 datasets × 3 models (HT, HAT, SRP) × 3 selectors (none, static_topk, online_ranking)`
+`7 datasets x 3 models (HT, HAT, SRP) x 3 selectors (none, static_topk, online_ranking)`
 
 This is the **control** matrix — standard streaming classifiers paired with common feature-selection strategies.
 
-### 2.2 Drift-aware matrix — `RunDriftAwareExperiments` (12 experiments)
+### 2.2 Drift-aware matrix — `RunDriftAwareExperiments` (21 experiments)
 
-`4 datasets × 3 variants:`
+`7 datasets x 3 variants:`
 
 - `<dataset> + HT  + drift_aware_selector`
 - `<dataset> + HAT + drift_aware_selector`
@@ -71,7 +74,7 @@ This is the **control** matrix — standard streaming classifiers paired with co
 
 This is the **proposed method** — drift-triggered feature adaptation, evaluated against the baselines.
 
-**Total: 48 experiments per full run.**
+**Total: 84 experiments per full run.**
 
 ---
 
@@ -145,11 +148,33 @@ The schema is identical to the baseline files — only the file names differ:
 
 | File                    | Equivalent of        | Contains                                      |
 |-------------------------|----------------------|-----------------------------------------------|
-| `driftaware_long.csv`   | `results_long.csv`   | 12 drift-aware experiments, snapshot rows      |
-| `driftaware_summary.csv`| `results_summary.csv`| 12 drift-aware experiments, final metrics      |
+| `driftaware_long.csv`   | `results_long.csv`   | 21 drift-aware experiments, snapshot rows      |
+| `driftaware_summary.csv`| `results_summary.csv`| 21 drift-aware experiments, final metrics      |
 | `driftaware_drifts.csv` | `results_drifts.csv` | Drift events from drift-aware experiments      |
 
 In the `selector` column you will see `drift_aware_selector` or `drift_aware_srp`. In the `model` column for DASRP rows you will see `DASRP`.
+
+### 4.3 Model comparison tables and plots
+
+Run:
+
+```bash
+python3 scripts/generate_model_comparison.py --results-dir results
+```
+
+This creates derived comparison artifacts where `HT` is included as a standalone baseline
+method (`model=HT`, `selector=none`) everywhere models are compared:
+
+| File | Contains |
+|------|----------|
+| `model_comparison_summary.csv` | Model-level rows: `HT`, `HAT`, `SRP`, `HT_DA`, `HAT_DA`, `DASRP` |
+| `ht_baseline_summary.csv` | Only the standalone `HT` baseline rows |
+| `model_comparison_long.csv` | Time-series rows for the same model-level methods |
+| `model_comparison.md` | Markdown tables with the HT baseline and per-dataset comparisons |
+| `plots/model_comparison_accuracy.png` | Accuracy bar chart with HT included |
+| `plots/model_comparison_logloss.png` | LogLoss bar chart with HT included |
+| `plots/model_comparison_auc.png` | AUC bar chart with HT included |
+| `plots/<dataset>_windowed_logloss.png` | Per-dataset windowed LogLoss curves with HT included |
 
 ---
 
@@ -175,3 +200,4 @@ mvn -q exec:java -Dexec.mainClass=stream.experiment.RunDriftAwareExperiments
 ```
 
 After completion, the six CSV files described in Section 4 are available in `results/` and can be analyzed with any data-science toolchain (pandas, matplotlib, seaborn, R, Excel, etc.).
+Run `scripts/generate_model_comparison.py` after the experiments to refresh the HT baseline tables and plots.

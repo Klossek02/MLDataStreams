@@ -14,6 +14,7 @@ public class AgrawalStreamProvider implements StreamProvider {
     private final int functionBefore;
     private final int functionAfter;
     private final int seed;
+    private final double perturbFraction;
 
     private AgrawalGenerator genBefore;
     private AgrawalGenerator genAfter;
@@ -27,11 +28,20 @@ public class AgrawalStreamProvider implements StreamProvider {
 
     public AgrawalStreamProvider(int totalInstances, int driftPoint, int driftWidth,
                                  int functionBefore, int functionAfter, int seed) {
+        this(totalInstances, driftPoint, driftWidth, functionBefore, functionAfter, seed, 0.0);
+    }
+
+    public AgrawalStreamProvider(int totalInstances, int driftPoint, int driftWidth,
+                                 int functionBefore, int functionAfter, int seed,
+                                 double perturbFraction) {
         if (driftPoint < 0 || driftPoint > totalInstances) {
             throw new IllegalArgumentException("driftPoint out of range");
         }
         if (driftWidth < 0) {
             throw new IllegalArgumentException("driftWidth must be >= 0");
+        }
+        if (perturbFraction < 0.0 || perturbFraction > 1.0) {
+            throw new IllegalArgumentException("perturbFraction must be in [0, 1]");
         }
         this.totalInstances = totalInstances;
         this.driftPoint = driftPoint;
@@ -39,6 +49,7 @@ public class AgrawalStreamProvider implements StreamProvider {
         this.functionBefore = functionBefore;
         this.functionAfter = functionAfter;
         this.seed = seed;
+        this.perturbFraction = perturbFraction;
         restart();
     }
 
@@ -46,6 +57,7 @@ public class AgrawalStreamProvider implements StreamProvider {
         AgrawalGenerator g = new AgrawalGenerator();
         g.functionOption.setValue(function);
         g.instanceRandomSeedOption.setValue(seed);
+        g.peturbFractionOption.setValue(perturbFraction);
         g.balanceClassesOption.setValue(false);
         g.prepareForUse();
         return g;

@@ -16,6 +16,8 @@ import stream.model.SrpModel;
 import stream.model.StreamModel;
 import stream.provider.AgrawalStreamProvider;
 import stream.provider.ArffStreamProvider;
+import stream.provider.LedStreamProvider;
+import stream.provider.RandomRbfStreamProvider;
 import stream.provider.StreamProvider;
 
 import java.util.ArrayList;
@@ -49,7 +51,13 @@ public class ExperimentMatrix {
                 new Dataset("agrawal_sudden",
                         () -> new AgrawalStreamProvider(200_000, 100_000, 1, 3), 200_000L),
                 new Dataset("agrawal_gradual",
-                        () -> new AgrawalStreamProvider(200_000, 100_000, 40_000, 1, 3, 42), 200_000L)
+                        () -> new AgrawalStreamProvider(200_000, 100_000, 40_000, 1, 3, 42), 200_000L),
+                new Dataset("agrawal_noisy",
+                        () -> new AgrawalStreamProvider(200_000, 100_000, 0, 1, 3, 1, 0.10), 200_000L),
+                new Dataset("led_irrelevant",
+                        () -> new LedStreamProvider(200_000, 100_000, 3, 7, 1), 200_000L),
+                new Dataset("rbf_highdim",
+                        () -> new RandomRbfStreamProvider(200_000, 100_000, 100, 2, 50, 1, 2), 200_000L)
         );
 
         List<ModelSpec> models = List.of(
