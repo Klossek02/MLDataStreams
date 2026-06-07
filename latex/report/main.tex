@@ -208,6 +208,7 @@ In the final step, we have merged all these parts together. For Avazu, we have c
 
 
 \subsection{\new{Synthetic data streams}}
+\label{subsec:synth}
 
 \new{Real-world streams contain natural, hidden concept drifts, but controlled synthetic streams are necessary to verify whether an adaptation mechanism reacts correctly when the drift location and drift type are known. In response to the reviewer comment, the final evaluation was extended from the original Agrawal-only synthetic setup to five synthetic stream configurations. Every synthetic run contains 200,000 instances and places the main drift at instance 100,000.}
 
@@ -222,6 +223,7 @@ In the final step, we have merged all these parts together. For Avazu, we have c
 
 
 \subsection{Summary of data streams characteristics}
+\label{subsec:summ}
 
 \new{Following the EDA, feature engineering, dimensionality reduction, and synthetic-stream extension phases, seven data streams were evaluated sequentially in the Java/MOA pipeline. Table~\ref{tab:datasets_summary} presents the final characteristics of the streams used in the 200,000-instance final evaluation.}
 
@@ -255,6 +257,7 @@ In the final step, we have merged all these parts together. For Avazu, we have c
 
 \section{Evaluation methodology}
 \subsection{Drift detection in real-time stream}
+\label{subsec:drift}
 
 First, we wanted to verify the presence of concept drift in the Avazu and Criteo datasets. To investigate it, we have used the ADWIN (ADaptive WINdowing) algorithm \cite{bifet2007learning, bifet2009adaptive}, implemented via the Python \texttt{river} library. It expands the window when the data are stationary and abruptly shrinks it when a statistically significant change in the stream's mean is detected.
 
@@ -282,40 +285,41 @@ As we can see, the ADWIN detector has identified critical points in both dataset
 \new{It is crucial to note that monitoring the CTR (target variable) is not the only way to detect drift in these streams. Concept drift can also manifest itself as changes in the marginal distributions of individual input features (feature drift) or a deterioration in the prediction error rate of the trained model (error rate drift). Relying solely on the target variable can therefore allow us to miss drifts affecting feature importance without immediately changing the class ratio. Extended drift detection experiments based on model error rates and feature distributions are presented separately in the Section~\ref{sec:eval}.}
 
 \subsection{Evaluation procedure in the MOA environment}
+\label{subsec:eval_proc}
 
 Due to the continuous nature of data streams, traditional machine learning evaluation techniques, such as cross-validation, are not applicable. We have used the prequential evaluation (test-then-train) method. In this approach, each incoming instance is first used to test the model -- generating a prediction -- and is then passed to the training algorithm to update the model's internal state. This means the classifier is always evaluated on unseen data. 
 
 Both real-world streams show class imbalance. Hence, we have abandoned the standard accuracy metric, which favors the majority class. Instead, we decided to evaluate our models using logarithmic loss (Log Loss) and area under the ROC curve (AUC ROC) \cite{fawcett2006introduction}. The logarithmic loss heavily penalizes confident yet incorrect predictions, whereas the AUC-ROC evaluates the model's ability to correctly separate the positive (clicked) and negative (non-clicked) classes. 
 
 
-\subsection{\new{Proof-of-concept baseline: HAT in MOA}}
+\subsection{\new{Proof-of-concept baseline: HT in MOA}}
+\label{subsec:poc}
 
-We first established a \new{proof-of-concept} baseline using the Hoeffding Adaptive Tree (HAT) -- an algorithm for streaming classification. \new{The HAT model was selected as the initial reference point because it includes built-in ADWIN-based drift adaptation. This makes a strong single-tree baseline for non-stationary streams.} The baseline HAT model has been evaluated on our processed Avazu and Criteo streams using the prequential procedure. \new{Moreover, the preliminary evaluation has been conducted in the MOA graphical interface and served to confirm that the data preprocessing has produced sensible results before proceeding to the Java-based experiments.}
-
-
-
-
+\new{We first established a proof-of-concept baseline using the Hoeffding Tree (HT) -- a basic incremental decision tree for high-speed data streams. \new{The HT model was selected as the initial reference point because it is the simplest streaming tree learner: it grows splits incrementally but has no built-in drift-handling mechanism, which makes it a natural non-adaptive baseline against which adaptive methods can be compared.} The baseline HT model has been evaluated on our processed Avazu and Criteo streams using the prequential procedure. This preliminary evaluation was conducted in the MOA graphical interface and served to confirm that the data preprocessing produced sensible results before proceeding to the Java-based experiments described in Section~\ref{sec:archit} and Section~\ref{sec:eval}.}
 
 
 \subsection{Adaptation gap on the synthetic stream}
+\label{subsec:adapt}
 
-We have evaluated our baseline model on the synthetic Agrawal stream. We have injected an abrupt concept drift exactly at instance 500,000. Figure \ref{fig:adaptation_gap} illustrates the resulting adaptation gap.
+We have evaluated a \new{HT} baseline on the synthetic Agrawal stream. \new{We have injected an abrupt concept drift (a switch from Agrawal classification function~1 to function~3) exactly at instance 100,000, consistent with the synthetic stream configuration used in the final evaluation.} Figure \ref{fig:adaptation_gap} illustrates the resulting adaptation gap.
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/adaptation_gap.png}
-\caption{\new{Agrawal dataset:} Error of the baseline HAT model over time, showing the adaptation gap after an abrupt concept drift. \new{Sudden drift takes place at instance 500,000.}}
+\caption{\new{Agrawal dataset:} Error of the baseline \new{HT} model over time, showing the adaptation gap after an abrupt concept drift. \new{Sudden drift takes place at instance 100,000.}}
 \label{fig:adaptation_gap}
 \end{figure}
 
-During the initial stable phase, from 0 to 500,000 instances, the HAT has successfully learned the defined rules and has maintained a low predictive error. However, immediately upon drift injection, the tree structure has become obsolete, causing the classification error to spike to over 30\%. 
+\new{During the initial stable phase, from 0 to 100,000 instances, the HT has successfully learned the defined rules and has driven its classification error down to roughly 6\%. However, immediately upon drift injection, the previously learned tree splits became obsolete, causing the classification error to rise to a peak of about 10\%. Because a plain Hoeffding Tree cannot discard outdated splits, it can only recover by gradually growing new structure on top of the stale one, so the error decreases slowly back towards 8\% by the end of the stream.}
 
-Furthermore, the recovery phase, in which the error slowly returns to a stable baseline, forms a distinct triangular shape on the plot. The width of it represents the recovery time ($t_{recovery}$). This leaves us with an important observation. Namely, standard tree adaptation is highly reactive and relatively slow. Therefore, flattening this exact error curve and minimizing $t_{recovery}$ are our primary motives for investigating the dynamic OFS as the next milestone.
+\new{The resulting rise-and-recovery forms a distinct triangular shape on the plot, whose width represents the recovery time ($t_{recovery}$).} This leaves us with an important observation. Namely, standard \new{non-adaptive} tree learning recovers from drift relatively slowly. Therefore, flattening this exact error curve and minimizing $t_{recovery}$ are our primary motives for investigating the dynamic OFS as the next milestone.
 
 
 \section{Architecture of the proposed solution}
+\label{sec:archit}
 
 \subsection{Overall streaming pipeline}
+\label{subsec:stream_pip}
 
 The implementation in the repository follows the standard streaming-learning
 loop: each instance is read in chronological order, transformed into a fixed
@@ -443,6 +447,7 @@ space. Static top-K does not trigger later resets because its selected subset is
 fixed after warm-up.}
 
 \subsection{Drift-aware feature selection}
+\label{subsec:drift-aware}
 
 The proposed drift-aware selector replaces the periodic schedule of the online
 ranking baseline with an event-driven adaptation triggered by ADWIN. The key
@@ -518,6 +523,7 @@ enter only when it has become competitive after the drift or when another
 selected feature has genuinely weakened.}
 
 \subsection{Drift-Aware SRP}
+\label{subsec:drift_aware_srp}
 
 The proposed model, Drift-Aware SRP (DASRP), extends the SRP framework along
 two complementary axes. First, ensemble subspaces become responsive to
@@ -600,6 +606,7 @@ stream family.}
 \label{sec:eval}
 
 \subsection{Experiment matrix}
+\label{subsec:matrix}
 
 The final evaluation used the CSV outputs from the implemented Java experiment
 pipeline. \new{The baseline matrix contains 63 runs: 7 datasets, 3 models
@@ -621,6 +628,7 @@ implementation effectively reports a class-1-versus-rest AUC, so LED results
 are interpreted primarily through Accuracy, Log Loss, and windowed Log Loss.}
 
 \subsection{Real CTR results}
+\label{subsec:ctr_res}
 
 \begin{table}[H]
 \centering
@@ -700,6 +708,7 @@ quality/runtime trade-off among the competitive ensemble methods.
 \end{figure}
 
 \subsection{\new{Synthetic-stream results}}
+\label{subsec:synth_res}
 
 \begin{table}[H]
 \centering
@@ -741,7 +750,7 @@ to the best SRP top-K configuration.}
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=\linewidth]{../../results/plots/model_comparison_logloss.png}
+\includegraphics[width=\linewidth]{plots/model_comparison_logloss.png}
 \caption{\new{All seven evaluated datasets: final Log Loss for HT, HAT, vanilla
 SRP, HT with drift-aware selection, HAT with drift-aware selection, and DASRP.
 This plot explicitly includes vanilla SRP in the synthetic comparison.}}
@@ -767,6 +776,7 @@ unnecessary feature and model changes.
 \end{figure}
 
 \section{Conclusion}
+\label{sec:conc}
 
 The final experiments confirm that online feature adaptation can improve CTR
 prediction in high-dimensional, non-stationary streams. On Avazu and Criteo,
@@ -803,48 +813,23 @@ weight recovery rate.}
 \hline
 \textbf{Name} & \textbf{Contributions} & \textbf{Workload} \\
 \hline
-Hubert Jaczy\'nski & \textbf{Analytics and final evaluation:} concept drift detection in raw data with ADWIN; final evaluation and comparative analysis of the proposed algorithm against baselines. \textbf{Report:} final evaluation and conclusion sections. \textbf{Presentation creation.} & $\sim$40h\\
+Hubert Jaczy\'nski & \textbf{Analytics and final evaluation:} concept drift detection in raw data with ADWIN; final evaluation and comparative analysis of the proposed algorithm against baselines. \textbf{Report:} final evaluation and conclusion sections. \textbf{Presentation creation.} \new{\textbf{Revision:} added Hoeffding Tree results to the real CTR table, added the SRP + online ranking row for Avazu, produced the model-comparison plot including vanilla SRP, extended the synthetic-stream results and drift-count analysis, and clarified the error-rate basis of the ADWIN alarms.} & $\sim$45h\\
 \hline
-Aleksandra K{\l}os & \textbf{Data engineering and baseline evaluation:} preprocessing Avazu and Criteo streams, exploratory data analysis, feature hashing, missing-value imputation, baseline evaluation in MOA, and scripts for Log Loss and adaptation-gap analysis. \textbf{Report:} introduction, data preparation, and evaluation methodology sections. \textbf{Presentation creation.} & $\sim$40h \\
+Aleksandra K{\l}os & \textbf{Data engineering and baseline evaluation:} preprocessing Avazu and Criteo streams, exploratory data analysis, feature hashing, missing-value imputation, baseline evaluation in MOA, and scripts for Log Loss and adaptation-gap analysis. \textbf{Report:} introduction, data preparation, and evaluation methodology sections. \textbf{Presentation creation.} \new{\textbf{Revision:} corrected the Criteo rolling-statistics computation so it is performed before zero-imputation and regenerated the ARFF file, added dataset names to all figure captions, fixed and described the \texttt{site\_x\_hour} feature, regenerated the HT adaptation-gap experiment at the consistent 200{,}000-instance scale, and added the comment on additional drift types in Subsection~\ref{subsec:drift}.} & $\sim$45h \\
 \hline
-Jakub Oganowski & \textbf{Algorithm implementation:} Java implementation of the SRP/OFS integration, drift-aware feature selection, subspace adaptation, and ensemble weighting. \textbf{Report:} architecture of the proposed solution section. \textbf{Presentation creation.} & $\sim$40h \\
-\hline
-\end{tabular}%
-}
-\end{table}
-
-\iffalse
-\section{Team contributions}
-\label{app:contrib}
-
-\begin{table}[H]
-\centering
-\caption{Division of work across team members, including detailed contributions and time assessment.}
-\label{tab:contrib}
-\resizebox{\linewidth}{!}{%
-\begin{tabular}{|l|>{\raggedright\arraybackslash}p{0.65\linewidth}|c|}
-\hline
-\textbf{Name} & \textbf{Contributions} & \textbf{Workload} \\
-\hline
-Hubert Jaczyński & \textbf{Analytics and final evaluation:} Concept drift detection in raw data (ADWIN); final evaluation and comparative analysis of the proposed algorithm against the baseline. \textbf{Report:} Final evaluation, Conclusion sections. \textbf{Presentation creation.} & $\sim$32h\\
-\hline
-Aleksandra Kłos & \textbf{Data engineering and baseline evaluation:} Preprocessing Avazu and Criteo streams (exploratory data analysis, feature hashing, missing values imputation); baseline evaluation in MOA (HAT, Agrawal); scripts for LogLoss and adaptation gap. \textbf{Report:} Introduction, Data preparation, Evaluation methodology sections. \textbf{Presentation creation.} & $\sim$32h \\
-\hline
-Jakub Oganowski & Concept drift detection in Criteo; \textbf{Algorithm implementation:} Modifying MOA source code in Java to integrate the SRP algorithm with the OFS. \textbf{Report:} Architecture of the proposed solution section. \textbf{Presentation creation.} & $\sim$32h \\
+Jakub Oganowski & \textbf{Algorithm implementation:} Java implementation of the SRP/OFS integration, drift-aware feature selection, subspace adaptation, and ensemble weighting. \textbf{Report:} architecture of the proposed solution section. \textbf{Presentation creation.} \new{\textbf{Revision:} added the \texttt{algorithm2e} pseudocode for the main pipeline and the drift-aware selector, implemented the three new synthetic stream providers (noisy Agrawal, LED, high-dimensional RBF), clarified the single error-rate ADWIN input and the model-reset behaviour, and documented the safeguard against low Information Gain features by replacing high Information Gain ones.} & $\sim$45h \\
 \hline
 \end{tabular}%
 }
 \end{table}
 
-\fi
 
 \section{Updates compared to the preliminary report}
 \label{sec:response}
 
 {\color{blue}
 All newly added or revised content is highlighted in blue throughout the report.
-Table~\ref{tab:changes} maps each reviewer remark to the section(s) modified in
-response.
+Table~\ref{tab:changes} maps each reviewer remark to the section(s) modified.
 
 \footnotesize
 \begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}
@@ -861,7 +846,7 @@ drift-aware feature selection.}
 Added two \texttt{algorithm2e} blocks: the prequential evaluation/adaptation
 pipeline and the ADWIN-triggered drift-aware feature-selection procedure.
 &
-Sect.~4.1, Algorithm~\ref{alg:main_pipeline}; Sect.~4.3,
+Subsection~\ref{subsec:stream_pip}, Algorithm~\ref{alg:main_pipeline}; Subsection~\ref{subsec:drift-aware},
 Algorithm~\ref{alg:drift_aware_selector}. \\
 \hline
 \textit{Clarify how feature selection influences existing models such as HT,
@@ -871,7 +856,7 @@ Clarified that HT, HAT, and vanilla SRP receive physically filtered instances.
 When a dynamic selector changes the feature subset, the model is reinitialised
 on a new filtered header; old splits are dropped, not retroactively constrained.
 &
-Sect.~4.2 and Sect.~4.3. \\
+Subsection~\ref{subsec:baseline} and Subsection~\ref{subsec:drift-aware}. \\
 \hline
 \textit{Clarify the input of ADWIN. Is there one ADWIN instance per feature?}
 &
@@ -879,7 +864,7 @@ Clarified that the Java evaluation uses one ADWIN detector per evaluated model
 run. Its input is the online 0/1 prediction-error stream. There is not one
 ADWIN instance per feature.
 &
-Sect.~4.3 and Algorithm~\ref{alg:main_pipeline}. \\
+Subsection~\ref{subsec:drift-aware} and Algorithm~\ref{alg:main_pipeline}. \\
 \hline
 \textit{Add dataset names to plot captions; fix \texttt{site\_x\_hour}; explain
 how IG is computed and based on what data.}
@@ -888,7 +873,7 @@ Added dataset names to captions, fixed the \texttt{site\_x\_hour} formatting,
 defined it as a site/hour interaction, and described IG estimation on warm-up,
 sliding, pre-drift, and post-drift buffers.
 &
-Sect.~2.3, Sect.~3.1, Sect.~4.2, figure captions. \\
+Subsection~\ref{subsec:synth}, Subsection~\ref{subsec:drift}, Subsection~\ref{subsec:baseline}, figure captions. \\
 \hline
 \textit{Reconsider Criteo rolling statistics because imputed values may disturb
 the calculations.}
@@ -898,7 +883,7 @@ Clarified and revised the preprocessing description: rolling statistics for
 values skipped by the window estimator. Remaining missing original values are
 then zero-filled.
 &
-Sect.~2.3. \\
+Subsection~\ref{subsec:synth}. \\
 \hline
 \textit{Add at least three more synthetic streams, including one larger
 dimensionality stream.}
@@ -907,16 +892,16 @@ Added \texttt{agrawal\_noisy}, \texttt{led\_irrelevant}, and
 \texttt{rbf\_highdim}. The RBF stream has 100 attributes. The final evaluation
 now contains 63 baseline and 21 drift-aware runs over seven datasets.
 &
-Sect.~2.4, Table~\ref{tab:datasets_summary}, Sect.~5.1, Sect.~5.4. \\
+Subsection~\ref{subsec:summ}, Table~\ref{tab:datasets_summary}, Subsection~\ref{subsec:matrix}, Subsection~\ref{subsec:synth_res}. \\
 \hline
-\textit{Comment whether drift detected in Sect. 3.1 is the only drift present;
+\textit{Comment whether drift detected in Subsection~\ref{subsec:baseline} is the only drift present;
 add drift detection experiments based on other features and error rates.}
 &
 Added an explicit comment that CTR drift is not the only possible drift. The
 main Java experiments additionally log ADWIN alarms from model error-rate
 streams, and the final evaluation reports drift counts by dataset and method.
 &
-Sect.~3.1, Sect.~4.3, Fig.~\ref{fig:eval_drift_counts}. \\
+Subsection~\ref{subsec:drift}, Subsection~\ref{subsec:drift-aware}, Fig.~\ref{fig:eval_drift_counts}. \\
 \hline
 \textit{Use Hoeffding Tree as another baseline.}
 &
@@ -924,14 +909,14 @@ Added HT to the baseline model set and explicitly included HT rows in the real
 CTR result table. HT is also included in the committed 63-run baseline
 summary.
 &
-Sect.~4.2, Table~\ref{tab:real_final_metrics}, Sect.~5.1. \\
+Subsection~\ref{subsec:baseline}, Table~\ref{tab:real_final_metrics}, Subsection~\ref{subsec:matrix}. \\
 \hline
 \textit{SRP + online ranking results are missing for Avazu.}
 &
 Added the Avazu SRP + online ranking row to the real CTR result table and kept
 the corresponding row in the committed results CSV.
 &
-Table~\ref{tab:real_final_metrics}; \texttt{results\_summary.csv}. \\
+Table~\ref{tab:real_final_metrics}; \path{results_summary.csv}. \\
 \hline
 \textit{Could a feature of low yet growing IG replace a high-IG feature that is
 not improving? Consider modifying the mechanism.}
@@ -941,14 +926,14 @@ post-drift top-$K$ ranking and is shrunk by $IG_{after}$ if it grows beyond
 $K$. Thus a low-IG feature cannot replace a still-high-IG feature solely
 because its IG increased.
 &
-Sect.~4.3. \\
+Subsection~\ref{subsec:drift-aware}. \\
 \hline
 \textit{Fig. 11 should include vanilla SRP.}
 &
 Added a final Log Loss comparison plot over all seven datasets that explicitly
 contains vanilla SRP together with HT, HAT, HT-DA, HAT-DA, and DASRP.
 &
-Fig.~\ref{fig:model_comparison_logloss_all}, Sect.~5.4. \\
+Fig.~\ref{fig:model_comparison_logloss_all}, Subsection~\ref{subsec:synth_res}. \\
 \hline
 \textit{DASRP may drop relevant features. Analyse which features are left and
 possibly revise DASRP.}
@@ -958,10 +943,20 @@ with weakened features. Unaffected learners preserve their old subspaces. The
 final discussion also identifies over-adaptation under frequent alarms as a
 limitation requiring per-stream threshold calibration.
 &
-Sect.~4.4, Sect.~5.4, Conclusion. \\
+Subsection~\ref{subsec:drift_aware_srp}, Subsection~\ref{subsec:synth_res}, Conclusion. \\
 \hline
 \end{longtable}
 }
+
+\appendix
+\section{Github repository link}
+
+\new{Most of the data, code, results, and synthetic data stream configurations
+developed for this project are available in the following repository:}
+
+\begin{center}
+\url{https://github.com/Klossek02/MLDataStreams}
+\end{center}
 
 
 \printbibliography
