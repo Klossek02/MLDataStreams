@@ -21,7 +21,7 @@ Both of datasets that need to be downloaded are train sets.
 * `drift_detection_avazu.py` and `drift_detection_criteo.py` - Python scripts using the `river` library (ADWIN) to verify concept drift in real-world streams empirically.
 * `adaptation_gap.py` - Script to visualize the adaptation gap and error spikes from the synthetic Agrawal generator.
 * `evaluation_plots.py` - Visualization tools for prequential evaluation results.
-* `dumpFile.csv` and `predictions_agrawal.pred` - MOA output files used for baseline performance tracking.
+* `adaptation_gap_HT.csv` and `predictions_agrawal.pred` - MOA output files used for baseline performance tracking.
 * `requirements.txt` - Python dependencies.
 
 ## Prerequisites
