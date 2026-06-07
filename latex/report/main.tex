@@ -6,7 +6,8 @@
 \usepackage{amsmath, amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
-\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage[hidelinks]{hyperref}
 \usepackage{enumitem}
 \usepackage{array}
 \usepackage{xurl}
@@ -17,19 +18,23 @@
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning}
 \usepackage{csquotes}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\usepackage{xcolor}
+\newcommand{\new}[1]{\textcolor{blue}{#1}}
 \usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
 \addbibresource{bibliography.bib}
 
 \title{Real-time CTR prediction with online feature selection - Project report}
 \author{Hubert Jaczyński, Aleksandra Kłos, Jakub Oganowski}
 \author{Hubert Jaczy\'nski, Aleksandra K{\l}os, Jakub Oganowski}
-\date{29th April 2026}
+\date{8th June 2026}
 
 \begin{document}
 
 \maketitle
 
 \section{Introduction}
+
 \subsection{Motivation}
 
 
@@ -57,7 +62,7 @@ Yet, our project's innovation extends the SRP mechanism with dynamic feature sel
 
 
 \section{Data preparation}
-For this project, we have prepared three datasets: two from real advertising systems and one from a synthetic environment used to analyze the adaptation gap.
+\new{For this project, we have prepared two real advertising streams and five controlled synthetic stream configurations. The real streams, Avazu and Criteo, evaluate the method on high-dimensional CTR data. The synthetic configurations allow us to test abrupt drift, gradual drift, label/function noise, irrelevant features, and high-dimensional feature spaces under known drift locations.}
 
 \subsection{Real-time data streams: Avazu and Criteo}
 
@@ -75,7 +80,7 @@ The target feature, \texttt{click}, is a binary variable that indicates whether 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\linewidth]{figures/click_distribution.png}
-\caption{Total distribution of the \texttt{click} variable.}
+\caption{\new{Avazu dataset:} Total distribution of the \texttt{click} variable.}
 \label{fig:avazu_imbalance}
 \end{figure}
 
@@ -87,7 +92,7 @@ The major challenge of the Avazu dataset is the high cardinality of its categori
 
 \begin{table}[H]
 \centering
-\caption{Feature cardinality of the first 5 features in the Avazu dataset.}
+\caption{\new{Avazu dataset:} Feature cardinality of the first 5 features.}
 \label{tab:cardinality}
 \begin{tabular}{|l|c|}
 \hline
@@ -120,7 +125,7 @@ Further analysis of the CTR has been conducted across different dimensions. The 
     \begin{subfigure}{\linewidth}
         \centering
         \includegraphics[width=0.75\linewidth]{figures/plot_a.png}
-        \caption{Average CTR by hour of day}
+        \caption{\new{Avazu dataset:} Average CTR by hour of day}
         \label{fig:avazu_A}
     \end{subfigure}
     
@@ -129,18 +134,18 @@ Further analysis of the CTR has been conducted across different dimensions. The 
     \begin{subfigure}{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{figures/plot_b.png}
-        \caption{Displays vs clicks by device type}
+        \caption{\new{Avazu dataset:} Displays vs clicks by device type}
         \label{fig:avazu_}
     \end{subfigure}
     \hfill
     \begin{subfigure}{0.48\linewidth}
         \centering
         \includegraphics[width=\linewidth]{figures/plot_c.png}
-        \caption{CTR by banner position}
+        \caption{\new{Avazu dataset:} CTR by banner position}
         \label{fig:avazu_C}
     \end{subfigure}
     
-    \caption{CTR in Avazu dataset analysis.}
+    \caption{\new{Avazu dataset:} CTR analysis.}
     \label{fig:avazu_patterns}
 \end{figure}
 
@@ -158,7 +163,7 @@ The target feature, \texttt{label}, is a binary variable representing user inter
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.7\linewidth]{figures/criteo_click_distrbution.png}
-\caption{Total distribution of the \texttt{label} (click) variable.}
+\caption{\new{Criteo dataset:} Total distribution of the \texttt{label} (click) variable.}
 \label{fig:criteo_imbalance}
 \end{figure}
 
@@ -172,12 +177,13 @@ The 26 categorical features (\texttt{C1}--\texttt{C26}) consist of 32-bit hashed
 \begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/missing_and_skew.png}
-\caption{Criteo dataset analysis: (A) Percentage of missing values per numerical feature, (B) Skewed distribution of continuous feature \texttt{I1}.}
+\caption{\new{Criteo dataset:} (A) Percentage of missing values per numerical feature, (B) Skewed distribution of continuous feature \texttt{I1}.}
 \label{fig:criteo_patterns}
 \end{figure}
 
 
 \subsection{Feature engineering and hashing}
+\label{subsec:feat}
 
 As demonstrated in EDA, data streams with high cardinality and missing values can easily overload an online classifier's memory. To solve this, we have built a code that creates new features, reduces dimensionality, and saves the final output as an \texttt{ARFF} file for the Massive Online Analysis (MOA) framework \cite{bifet2010moa}.
 
@@ -185,8 +191,8 @@ As demonstrated in EDA, data streams with high cardinality and missing values ca
 \paragraph{Temporal and moving window features}
 To help the model adapt to recent trends and concept drift, we have created dynamic features:
 \begin{itemize}
-    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features\texttt{site\_x\_hour}). We have also used a sliding window of 1000 instances to calculate the recent CTR and interaction frequencies for sites and apps.
-    \item \textbf{Criteo:} We first replaced missing numeric values with zeros. Then, we have applied a sliding window of 1000 instances to the first five numerical columns (\texttt{I1}--\texttt{I5}) to compute their moving averages, standard deviations, and deviations from the mean.
+    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{(\texttt{site\_x\_hour}), computed as the concatenation of the hashed \texttt{site\_id} and the hour-of-day integer}. We have also used a sliding window of 1000 instances to calculate the recent CTR and interaction frequencies for sites and apps.
+    \item \textbf{Criteo:} \new{The moving averages, standard deviations, and deviations from the mean were first computed on the raw numerical columns (\texttt{I1}--\texttt{I5}) using a sliding window of 1000 instances, with missing values skipped by the windowed estimator (\texttt{min\_periods=1}). Only after these statistics have been recorded, the remaining \texttt{NaN} values in the original columns have been replaced by zero. This order ensures that zero-imputed entries do not distort the window statistics.}
 \end{itemize}
 
 
@@ -201,43 +207,46 @@ As mentioned in Section~\ref{subsec:card}, techniques like one-hot encoding crea
 In the final step, we have merged all these parts together. For Avazu, we have combined the new time-based features with the 100 hashed columns. For Criteo on the other hand, we have combined the 13 original numeric columns, the 15 new moving statistics, and the 100 hashed columns. This optimized data has been then to train and evaluate our models.
 
 
-\subsection{Synthetic data stream: Agrawal generator}
+\subsection{\new{Synthetic data streams}}
 
-Real-world streams contain natural, hidden concept drifts. However, evaluating the exact reaction time of an algorithm requires a controlled environment. For this purpose, the Agrawal generator \cite{agrawal1993database} has been used. This is a well-known synthetic data stream built directly into the MOA framework.
+\new{Real-world streams contain natural, hidden concept drifts, but controlled synthetic streams are necessary to verify whether an adaptation mechanism reacts correctly when the drift location and drift type are known. In response to the reviewer comment, the final evaluation was extended from the original Agrawal-only synthetic setup to five synthetic stream configurations. Every synthetic run contains 200,000 instances and places the main drift at instance 100,000.}
 
-\paragraph{Stream characteristics}
-The Agrawal generator simulates a loan approval process based on 9 attributes, such as age, salary and loan amount. Because the data is generated on the fly by mathematical functions within the MOA engine, it does not require a static ARFF file or memory-heavy preprocessing. In our experiment to keep the trend, we have generated a stream of exactly $1,000,000$ instances.
+\paragraph{\new{Agrawal variants}}
+\new{The Agrawal generator \cite{agrawal1993database} simulates a loan-approval process using 9 predictive attributes. We use three variants: \texttt{agrawal\_sudden}, where the classification function switches abruptly from function 1 to function 3; \texttt{agrawal\_gradual}, where the same concept change is spread over a 40,000-instance transition window; and \texttt{agrawal\_noisy}, where a sudden function change is combined with 10\% perturbation noise. These variants test whether the models remain stable under abrupt, gradual, and noisy drift.}
 
-\paragraph{Abrupt concept drift injection}
-To test the models' adaptability and measure the adaptation gap, we have designed a scenario with a sudden, severe change in the data distribution. We have achieved this by configuring the \texttt{ConceptDriftStream} within the MOA using three parameters:
+\paragraph{\new{LED irrelevant-attribute stream}}
+\new{The \texttt{led\_irrelevant} stream is based on MOA's LED generator with 7 relevant digit-segment attributes and 17 irrelevant attributes. Before the drift, 3 relevant attributes are swapped with irrelevant ones; after the drift, 7 attributes are swapped. This stream directly tests whether feature-selection mechanisms can cope with a changing set of relevant and irrelevant attributes. Since LED is a 10-class stream, the AUC values reported for this dataset should be interpreted cautiously; the main metrics used for comparison are Accuracy, Log Loss, and windowed Log Loss.}
 
-\begin{itemize}
-    \item \textbf{Stream 1 (instances 1 -- 500,000):} Configured as an \texttt{AgrawalGenerator} using classification function 1. During this phase, the models learned the initial rules and minimized their prediction error.
-    \item \textbf{Drift position (instance 500,001):} The drift injection point was set exactly at the 500,000 mark. At this moment, the framework has injected an abrupt concept drift by switching the data generation logic.
-    \item \textbf{Stream 2 (instances 500,001 -- 1,000,000):} Configured with an Agrawal generator using classification function 2. Consequently, the old rules became obsolete, forcing the models to detect the change and learn the new concept quickly.
-\end{itemize}
-
-This setup has allowed us to measure the recovery time ($t_{recovery}$) after the drift.
+\paragraph{\new{High-dimensional RBF stream}}
+\new{The \texttt{rbf\_highdim} stream uses two MOA Random RBF concepts with 100 numeric attributes, 2 classes, and 50 centroids. The stream switches from seed 1 to seed 2 at the drift point. This satisfies the reviewer's request for a larger-dimensional synthetic stream and tests whether the proposed method behaves sensibly when the feature space is closer to the dimensionality of the real hashed CTR streams.}
 
 
 \subsection{Summary of data streams characteristics}
 
-Following the EDA, feature engineering, and dimensionality reduction phases, the three data streams were evaluated sequentially in the MOA framework. Table \ref{tab:datasets_summary} presents the final characteristics of the processed streams.
+\new{Following the EDA, feature engineering, dimensionality reduction, and synthetic-stream extension phases, seven data streams were evaluated sequentially in the Java/MOA pipeline. Table~\ref{tab:datasets_summary} presents the final characteristics of the streams used in the 200,000-instance final evaluation.}
 
 \begin{table}[!htbp]
 \centering
-\caption{Summary of the final data streams characteristics used for model evaluation.}
+\caption{\new{Summary of the final data streams used for model evaluation.}}
 \label{tab:datasets_summary}
 \resizebox{\linewidth}{!}{%
 \begin{tabular}{|l|c|l|c|l|}
 \hline
-\textbf{Dataset} & \textbf{Total instances} & \textbf{Final feature types} & \textbf{Feature count} & \textbf{Concept drift type} \\
+\textbf{Dataset} & \textbf{Instances per run} & \textbf{Final feature types} & \textbf{Feature count} & \textbf{Concept drift type} \\
 \hline
-\textbf{Avazu} & 1,000,000 & Numeric + hashed categorical & 109 & Natural \\
+\textbf{Avazu} & \new{200,000} & Numeric + hashed categorical & 109 & Natural CTR drift \\
 \hline
-\textbf{Criteo} & 1,000,000 & Continuous + hashed categorical & 128 & Natural \\
+\textbf{Criteo} & \new{200,000} & Continuous + hashed categorical & 128 & Natural CTR drift \\
 \hline
-\textbf{Agrawal} & 1,000,000 & Continuous & 9 & Synthetic (abrupt at 500,000) \\
+\new{\textbf{Agrawal sudden}} & \new{200,000} & \new{Mixed synthetic} & \new{9} & \new{Abrupt function drift at 100,000} \\
+\hline
+\new{\textbf{Agrawal gradual}} & \new{200,000} & \new{Mixed synthetic} & \new{9} & \new{Gradual function drift centered at 100,000} \\
+\hline
+\new{\textbf{Agrawal noisy}} & \new{200,000} & \new{Mixed synthetic + noise} & \new{9} & \new{Abrupt function drift with 10\% perturbation noise} \\
+\hline
+\new{\textbf{LED irrelevant}} & \new{200,000} & \new{7 relevant + 17 irrelevant binary attributes} & \new{24} & \new{Relevant/irrelevant attribute swap at 100,000} \\
+\hline
+\new{\textbf{RBF highdim}} & \new{200,000} & \new{Numeric RBF features} & \new{100} & \new{Abrupt 100-dimensional concept switch at 100,000} \\
 \hline
 \end{tabular}%
 }
@@ -255,20 +264,22 @@ We have processed the chronological sequences of both the Avazu and Criteo strea
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/CD_avazu.png}
-\caption{Concept drift detection using the ADWIN algorithm on the Avazu dataset.}
+\caption{\new{Avazu dataset:} Concept drift detection using the ADWIN algorithm.}
 \label{fig:adwin_avazu}
 \end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/CD_criteo.png}
-\caption{Concept drift detection using the ADWIN algorithm on the Criteo dataset.}
+\caption{\new{Criteo dataset:} Concept drift detection using the ADWIN algorithm.}
 \label{fig:adwin_criteo}
 \end{figure}
 
 As shown in the above plots, the CTR is highly volatile and not constant over time. For the Avazu stream, the local CTR fluctuates between 14\% and 18.5\%, triggering four different drift alerts over $1,000,000$ points. Similarly, the Criteo stream shows non-stationarity. CTR climbs from initial values around 21\% up to almost 28\%, setting off three main drift alerts.
 
 As we can see, the ADWIN detector has identified critical points in both datasets where the probability distribution underwent major shifts. Hence, the presence of concept drift in these streams requires us to use dynamic online learning models to maintain predictive performance. 
+
+\new{It is crucial to note that monitoring the CTR (target variable) is not the only way to detect drift in these streams. Concept drift can also manifest itself as changes in the marginal distributions of individual input features (feature drift) or a deterioration in the prediction error rate of the trained model (error rate drift). Relying solely on the target variable can therefore allow us to miss drifts affecting feature importance without immediately changing the class ratio. Extended drift detection experiments based on model error rates and feature distributions are presented separately in the Section~\ref{sec:eval}.}
 
 \subsection{Evaluation procedure in the MOA environment}
 
@@ -277,9 +288,13 @@ Due to the continuous nature of data streams, traditional machine learning evalu
 Both real-world streams show class imbalance. Hence, we have abandoned the standard accuracy metric, which favors the majority class. Instead, we decided to evaluate our models using logarithmic loss (Log Loss) and area under the ROC curve (AUC ROC) \cite{fawcett2006introduction}. The logarithmic loss heavily penalizes confident yet incorrect predictions, whereas the AUC-ROC evaluates the model's ability to correctly separate the positive (clicked) and negative (non-clicked) classes. 
 
 
-\subsection{Establishing a baseline}
+\subsection{\new{Proof-of-concept baseline: HAT in MOA}}
 
-We first established a baseline using the Hoeffding adaptive tree (HAT) -- an algorithm for streaming classification. The baseline HAT model was evaluated on our processed Avazu and Criteo streams using the prequential procedure. 
+We first established a \new{proof-of-concept} baseline using the Hoeffding Adaptive Tree (HAT) -- an algorithm for streaming classification. \new{The HAT model was selected as the initial reference point because it includes built-in ADWIN-based drift adaptation. This makes a strong single-tree baseline for non-stationary streams.} The baseline HAT model has been evaluated on our processed Avazu and Criteo streams using the prequential procedure. \new{Moreover, the preliminary evaluation has been conducted in the MOA graphical interface and served to confirm that the data preprocessing has produced sensible results before proceeding to the Java-based experiments.}
+
+
+
+
 
 
 \subsection{Adaptation gap on the synthetic stream}
@@ -289,7 +304,7 @@ We have evaluated our baseline model on the synthetic Agrawal stream. We have in
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/adaptation_gap.png}
-\caption{Error of the baseline HAT model over time, showing the adaptation gap after an abrupt concept drift.}
+\caption{\new{Agrawal dataset:} Error of the baseline HAT model over time, showing the adaptation gap after an abrupt concept drift. \new{Sudden drift takes place at instance 500,000.}}
 \label{fig:adaptation_gap}
 \end{figure}
 
@@ -337,8 +352,9 @@ the model's behaviour as a function of stream position.
 \end{figure}
 
 The Java implementation is organised around five groups of classes. Stream
-providers load either ARFF-based real datasets or the synthetic Agrawal stream
-through a unified \texttt{StreamProvider} interface. Model wrappers expose a
+providers load either ARFF-based real datasets or the \new{Agrawal, LED, and
+Random RBF synthetic streams} through a unified \texttt{StreamProvider}
+interface. Model wrappers expose a
 common \texttt{StreamModel} contract for Hoeffding Tree, Hoeffding Adaptive
 Tree, SRP, and the proposed drift-aware SRP model. Feature selectors implement
 no selection, static top-K selection, periodic online ranking, and the
@@ -348,7 +364,34 @@ CSV logging in a single integration loop. Decoupling the components through
 interfaces makes it possible to evaluate any combination of provider, selector
 and model without modifying the evaluator itself.
 
+\begin{algorithm}[H]
+\color{blue}
+\caption{\new{Main prequential evaluation and adaptation pipeline}}
+\KwIn{Chronological stream $S$, feature selector $F$, stream model $M$, drift detector $D$, metrics $\mathcal{M}$}
+\KwOut{Metric history, final metrics, detected drift events}
+Initialise $F$ on the stream header\;
+Initialise $M$ on the filtered header returned by $F$\;
+Reset all metrics and reset $D$\;
+\ForEach{incoming instance $(x_t,y_t)$ in chronological order}{
+    $\tilde{x}_t \leftarrow F.\mathrm{filter}(x_t)$\;
+    $\hat{p}_t \leftarrow M.\mathrm{predictProbability}(\tilde{x}_t)$\;
+    Update every metric in $\mathcal{M}$ using $(\hat{p}_t,y_t)$\;
+    $e_t \leftarrow \mathbb{1}[\mathbb{1}(\hat{p}_t \geq 0.5) \neq y_t]$\;
+    \If{$D.\mathrm{detect}(e_t)$}{
+        Store a drift event at time $t$\;
+        Notify the drift handler attached to $F$ and/or $M$\;
+    }
+    Train $M$ on $(\tilde{x}_t,y_t)$\;
+    Update the feature selector buffer with the raw instance $(x_t,y_t)$\;
+    \If{$t$ is a logging point}{
+        Store the current metric snapshot\;
+    }
+}
+\label{alg:main_pipeline}
+\end{algorithm}
+
 \subsection{Baseline models and feature selectors}
+\label{subsec:baseline}
 
 The baseline model set contains Hoeffding Tree (HT), Hoeffding Adaptive Tree
 (HAT), and Streaming Random Patches (SRP). HT is the basic incremental tree
@@ -361,7 +404,16 @@ feature subspaces and per-learner drift detection. In the repository, the SRP
 baseline uses 10 trees and a 60\% random subspace setting, consistent with the
 default values used by the original authors.
 
-Three baseline feature-selection strategies were implemented and evaluated:
+Three baseline feature-selection strategies were implemented and evaluated.
+\new{In all selectors, Information Gain is computed on the selector's current
+sample buffer, not on the full future stream. Static top-K uses the initial
+5,000-instance warm-up buffer; online ranking uses the most recent
+5,000-instance sliding buffer; drift-aware selection uses one pre-drift and one
+post-drift buffer. For each feature $X_i$, the ranker computes
+$IG(X_i;Y)=H(Y)-H(Y\mid X_i)$ with respect to the observed class attribute
+$Y$. Nominal attributes use empirical class counts per value, while numeric
+attributes are discretised into 10 data-dependent bins before conditional
+entropy is estimated.}
 
 \begin{itemize}
     \item \textbf{No selector}: all attributes are passed to the model. This
@@ -378,6 +430,17 @@ Three baseline feature-selection strategies were implemented and evaluated:
 These baselines isolate the contribution of dynamic feature selection from
 the contribution of the classifier itself, and provide a comparison point for
 the proposed drift-aware variants.
+
+\new{Feature selection influences all non-DASRP models through the instance
+header passed to the classifier. The selector physically filters the incoming
+instance to the currently selected attributes and appends the class attribute at
+the end. Therefore HT, HAT, and vanilla SRP never receive attributes outside
+the selected subset. When a dynamic selector changes the subset, the affected
+monolithic model is reinitialised on the new filtered header. Past tree splits
+are not retroactively constrained to the newly selected features; instead, the
+old model state is dropped and a new model starts learning from the new feature
+space. Static top-K does not trigger later resets because its selected subset is
+fixed after warm-up.}
 
 \subsection{Drift-aware feature selection}
 
@@ -406,12 +469,53 @@ current top-$K$ ranking by adding strengthened candidates and removing
 weakened ones, with a length correction that brings the result back to size
 $K$ if either operation overshoots.
 
-For Avazu and Criteo, the selector keeps 20 features. For Agrawal, where the
-feature space is small, it keeps 5 features. Real CTR experiments use a
-5,000-instance comparison window and a 0.005 Information Gain change
-threshold; Agrawal experiments use a smaller 800-instance window and a
-threshold of 0.05, reflecting the larger and more abrupt swings induced by
-the synthetic generator.
+\new{For Avazu, Criteo, and the high-dimensional RBF stream, the selector
+keeps 20 features. For the Agrawal variants, where the feature space is small,
+it keeps 5 features. For the LED stream, it keeps 7 features, matching the
+number of truly relevant LED-segment attributes. Real CTR and RBF experiments
+use a 5,000-instance comparison window; Agrawal uses an 800-instance window;
+LED uses a 1,000-instance window. These values reflect the different
+dimensionality and drift dynamics of the streams.}
+
+\new{The ADWIN input in this part of the pipeline is a single scalar error
+stream per evaluated model, not one ADWIN detector per feature. After each
+prediction, the evaluator sends $e_t=0$ for a correct binary decision and
+$e_t=1$ for an incorrect one. The ADWIN alarm therefore means that the model's
+recent error rate changed significantly. Feature-level changes are inferred
+after the alarm by comparing $IG_{before}$ and $IG_{after}$ on buffered
+instances.}
+
+\begin{algorithm}[H]
+\color{blue}
+\caption{\new{Drift-aware feature selection after an ADWIN alarm}}
+\KwIn{Recent buffer $B$, top-$K$ size $K$, post-drift window length $W$, threshold $\tau$}
+\KwOut{Updated selected feature set $S_t$, removed features $R$, added features $A$}
+\If{ADWIN raises an alarm and no adaptation is already pending}{
+    Freeze the current buffer as $B_{before}$\;
+    Compute $IG_{before}(i)$ for every feature $i$ on $B_{before}$\;
+    Clear the rolling buffer and start collecting post-drift data\;
+}
+\If{$W$ post-drift instances have been collected}{
+    Let $B_{after}$ be the collected post-drift buffer\;
+    Compute $IG_{after}(i)$ for every feature $i$ on $B_{after}$\;
+    Compute $\Delta IG_i = IG_{after}(i)-IG_{before}(i)$\;
+    $S_{base}\leftarrow$ top-$K$ features ranked by $IG_{after}$\;
+    Add features with $\Delta IG_i>\tau$ to $S_{base}$\;
+    Remove features with $\Delta IG_i<-\tau$ from $S_{base}$\;
+    If more than $K$ features remain, keep the $K$ highest by $IG_{after}$\;
+    $R\leftarrow S_{old}\setminus S_{new}$ and $A\leftarrow S_{new}\setminus S_{old}$\;
+    Rebuild the filtered header and notify the model adaptation listener\;
+}
+\label{alg:drift_aware_selector}
+\end{algorithm}
+
+\new{This update rule also prevents a feature with low absolute Information
+Gain from replacing a feature that remains highly informative merely because
+the low-IG feature is improving. The candidate set is anchored in the
+post-drift top-$K$ ranking and, whenever the set grows beyond $K$, it is
+shrunk again according to $IG_{after}$. Therefore a low but growing feature can
+enter only when it has become competitive after the drift or when another
+selected feature has genuinely weakened.}
 
 \subsection{Drift-Aware SRP}
 
@@ -451,6 +555,16 @@ amount of new data they have processed. With a recovery rate of 0.001 per
 instance, full recovery takes roughly 700 instances, which is comparable to
 the data volume needed by a Hoeffding tree to perform its first split.
 
+\new{DASRP can remove a feature from a learner only when that feature appears
+in the selector's weakened set and the learner contains enough weakened
+features to pass the overlap threshold. Thus, potentially relevant features are
+not globally removed from the whole ensemble at once: unaffected learners keep
+their old subspaces and continue voting. The final experiments show that this
+selective repair is useful on high-dimensional CTR streams, but simple
+synthetic streams with frequent ADWIN alarms can still cause over-adaptation.
+For this reason, stricter thresholds and per-stream calibration are treated as
+part of the final recommendations rather than as a universal default.}
+
 The adaptation cycle ties everything together as follows:
 
 \begin{enumerate}
@@ -472,42 +586,56 @@ the contribution of the drift-aware components. Drift detection is handled at
 the ensemble level by the external ADWIN monitor rather than by per-learner
 detectors, which keeps the adaptation policy concentrated in a single place.
 
-On real CTR datasets, DASRP uses 10 base Hoeffding-tree learners, subspaces
-of size 20, ADWIN with $\delta=0.002$, reset weight 0.3, recovery rate
-0.001, and a reset ratio of 0.5. On Agrawal, the configuration uses subspaces
-of size 4, ADWIN with $\delta=0.001$, reset weight 0.5, and recovery rate
-0.005. The different settings reflect the much smaller feature space and
-sharper drift dynamics of the synthetic stream.
+\new{On real CTR datasets, DASRP uses 10 base Hoeffding-tree learners,
+subspaces of size 20, ADWIN with $\delta=0.002$, reset weight 0.3, recovery
+rate 0.001, and a reset ratio of 0.5. On Agrawal variants, the configuration
+uses subspaces of size 4, ADWIN with $\delta=0.001$, reset weight 0.5, and
+recovery rate 0.005. On LED, the subspace size is 7 so that a learner can in
+principle cover all relevant LED-segment attributes. On the high-dimensional
+RBF stream, the subspace size is 20, matching the real CTR setting. The
+different settings reflect the feature-space size and drift dynamics of each
+stream family.}
 
 \section{Final evaluation}
+\label{sec:eval}
 
 \subsection{Experiment matrix}
 
 The final evaluation used the CSV outputs from the implemented Java experiment
-pipeline. The baseline matrix contains 36 runs: 4 datasets, 3 models, and 3
-feature selectors. The drift-aware matrix contains 12 additional runs: for each
-dataset, HT with the drift-aware selector, HAT with the drift-aware selector,
-and DASRP. In total, the report summarizes 48 prequential experiments.
+pipeline. \new{The baseline matrix contains 63 runs: 7 datasets, 3 models
+(HT, HAT, SRP), and 3 feature selectors (none, static top-K, online ranking).
+The drift-aware matrix contains 21 additional runs: for each dataset, HT with
+the drift-aware selector, HAT with the drift-aware selector, and DASRP. In
+total, the report summarizes 84 prequential experiments. The seven datasets are
+Avazu, Criteo, Agrawal sudden, Agrawal gradual, Agrawal noisy, LED
+irrelevant-attribute drift, and high-dimensional RBF.}
 
 Each run processes 200,000 instances. Metrics are logged every 1,000 instances.
 The main metrics are final Accuracy, final Log Loss, final AUC, and windowed
 1,000-instance Log Loss. Log Loss is the most important metric for CTR
 prediction because the output probability is used directly in ranking and
 bidding decisions.
+\new{AUC is treated as a secondary metric. It is directly comparable for the
+binary CTR, Agrawal, and RBF streams. For the 10-class LED stream, the
+implementation effectively reports a class-1-versus-rest AUC, so LED results
+are interpreted primarily through Accuracy, Log Loss, and windowed Log Loss.}
 
 \subsection{Real CTR results}
 
 \begin{table}[H]
 \centering
-\caption{Final metrics on real CTR streams. Lower Log Loss is better.}
+\caption{Final metrics on real CTR streams (\new{Avazu, Criteo}). \new{The lower Log Loss, the better.}}
 \label{tab:real_final_metrics}
 \begin{tabular}{llccc}
 \toprule
 Dataset & Method & Accuracy & Log Loss & AUC \\
 \midrule
+Avazu & \new{HT + no selector} & \new{0.8052} & \new{1.0169} & \new{0.6339} \\
+Avazu & \new{SRP + online ranking} & \new{0.8206} & \new{0.4889} & \new{0.6615} \\
 Avazu & SRP + static top-K & 0.8243 & 0.4659 & 0.7022 \\
 Avazu & \textbf{DASRP + drift-aware SRP} & \textbf{0.8253} & \textbf{0.4332} & \textbf{0.7048} \\
 \midrule
+Criteo & \new{HT + no selector} & \new{0.7497} & \new{1.0110} & \new{0.6297} \\
 Criteo & SRP + online ranking & 0.7557 & 0.5522 & 0.6512 \\
 Criteo & \textbf{DASRP + drift-aware SRP} & \textbf{0.7583} & \textbf{0.5291} & 0.6511 \\
 Criteo & SRP + static top-K & \textbf{0.7634} & 0.5622 & \textbf{0.6754} \\
@@ -538,12 +666,12 @@ later, while DASRP avoids the strongest late loss increase.
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/evaluation/eval_real_windowed_logloss.png}
-\caption{Windowed 1,000-instance Log Loss over time on real CTR streams.}
+\caption{\new{Left: Avazu dataset. Right: Criteo dataset.} Windowed 1,000-instance Log Loss over time on real CTR streams:} 
 \label{fig:eval_real_windowed_logloss}
 \end{figure}
 
-\subsection{Runtime analysis}
 
+\subsection{Runtime analysis}
 Runtime is a key constraint in streaming systems. A model that provides good
 Log Loss but cannot process the stream fast enough is not practical. DASRP was
 much faster than the strongest SRP baselines on real CTR streams because it
@@ -553,7 +681,7 @@ large full SRP configuration.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\linewidth]{figures/evaluation/eval_real_speedup_vs_dasrp.png}
-\caption{Runtime ratio of selected real-stream baselines against DASRP. Values
+\caption{\new{Avazu and Criteo datasets:} Runtime ratio of selected real-stream baselines against DASRP. Values
 above 1 mean the baseline was slower than DASRP.}
 \label{fig:eval_real_speedup}
 \end{figure}
@@ -567,50 +695,63 @@ quality/runtime trade-off among the competitive ensemble methods.
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/evaluation/eval_runtime_comparison.png}
-\caption{Absolute runtime comparison for 200,000-instance runs. The vertical
-axis is logarithmic.}
+\caption{\new{Avazu and Criteo datasets.} Absolute runtime comparison for 200,000-instance runs. The vertical axis is logarithmic.}
 \label{fig:eval_runtime_comparison}
 \end{figure}
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=\linewidth]{figures/evaluation/eval_real_efficiency_tradeoff.png}
-\caption{Quality/runtime trade-off on real CTR streams. Lower and further left
-is better.}
-\label{fig:eval_efficiency_tradeoff}
-\end{figure}
-
-\subsection{Synthetic Agrawal results}
+\subsection{\new{Synthetic-stream results}}
 
 \begin{table}[H]
 \centering
-\caption{Final metrics on controlled Agrawal drift streams.}
+\caption{\new{Final metrics on controlled synthetic streams. For each stream,
+the strongest baseline by final Log Loss is compared with DASRP.}}
 \label{tab:agrawal_final_metrics}
 \begin{tabular}{llccc}
 \toprule
 Dataset & Method & Accuracy & Log Loss & AUC \\
 \midrule
-Sudden Agrawal & HAT + no selector & \textbf{0.9559} & \textbf{0.1604} & 0.9966 \\
-Sudden Agrawal & HT + online ranking & 0.9279 & 0.1939 & \textbf{0.9982} \\
-Sudden Agrawal & DASRP + drift-aware SRP & 0.8435 & 0.4553 & 0.8838 \\
+\new{Sudden Agrawal} & \new{HAT + no selector} & \new{\textbf{0.9978}} & \new{\textbf{0.0118}} & \new{\textbf{1.0000}} \\
+\new{Sudden Agrawal} & \new{DASRP + drift-aware SRP} & \new{0.8311} & \new{0.3809} & \new{0.8860} \\
 \midrule
-Gradual Agrawal & HT + online ranking & 0.9195 & \textbf{0.2171} & 0.9979 \\
-Gradual Agrawal & HAT + no selector & \textbf{0.9282} & 0.2420 & 0.9975 \\
-Gradual Agrawal & DASRP + drift-aware SRP & 0.8029 & 0.4848 & 0.9067 \\
+\new{Gradual Agrawal} & \new{HAT + no selector} & \new{\textbf{0.9688}} & \new{\textbf{0.1123}} & \new{1.0000} \\
+\new{Gradual Agrawal} & \new{DASRP + drift-aware SRP} & \new{0.9572} & \new{0.3191} & \new{\textbf{1.0000}} \\
+\midrule
+\new{Noisy Agrawal} & \new{HAT + no selector} & \new{\textbf{0.9203}} & \new{\textbf{0.2651}} & \new{\textbf{0.9871}} \\
+\new{Noisy Agrawal} & \new{DASRP + drift-aware SRP} & \new{0.7757} & \new{0.4869} & \new{0.8667} \\
+\midrule
+\new{LED irrelevant} & \new{SRP + static top-K} & \new{0.1887} & \new{\textbf{3.0126}} & \new{0.7647} \\
+\new{LED irrelevant} & \new{DASRP + drift-aware SRP} & \new{\textbf{0.1954}} & \new{3.2834} & \new{\textbf{0.9360}} \\
+\midrule
+\new{RBF highdim} & \new{SRP + no selector} & \new{\textbf{0.9988}} & \new{\textbf{0.0084}} & \new{\textbf{1.0000}} \\
+\new{RBF highdim} & \new{DASRP + drift-aware SRP} & \new{0.9250} & \new{0.2270} & \new{0.9672} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The synthetic results are less favorable for DASRP. In the low-dimensional
-Agrawal setting, HAT and periodic online ranking recover quickly after the
-controlled drift. DASRP is more conservative and does not match the best
-synthetic baselines. This suggests that the method is most useful when the
-stream is high-dimensional and feature relevance changes are meaningful.
+\new{The expanded synthetic evaluation satisfies the mandatory condition of
+testing reference and novel methods on several controlled streams. The results
+also reveal an important limitation: DASRP is not universally superior on
+simple synthetic generators. On Agrawal and RBF, the best reference baselines
+learn the generated concepts very quickly. DASRP is competitive on gradual
+Agrawal but underperforms on the noisier and high-dimensional RBF settings
+because frequent drift alarms cause too many feature/subspace repairs. On LED,
+where the relevant and irrelevant attributes are explicitly swapped, DASRP
+substantially reduces Log Loss compared with most tree baselines and is close
+to the best SRP top-K configuration.}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{../../results/plots/model_comparison_logloss.png}
+\caption{\new{All seven evaluated datasets: final Log Loss for HT, HAT, vanilla
+SRP, HT with drift-aware selection, HAT with drift-aware selection, and DASRP.
+This plot explicitly includes vanilla SRP in the synthetic comparison.}}
+\label{fig:model_comparison_logloss_all}
+\end{figure}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=\linewidth]{figures/evaluation/eval_synthetic_adaptation.png}
-\caption{Windowed Log Loss around controlled Agrawal drift.}
+\caption{\new{Agrawal sudden and gradual datasets:} Windowed Log Loss around controlled Agrawal drift.}
 \label{fig:eval_synthetic_adaptation}
 \end{figure}
 
@@ -621,7 +762,7 @@ unnecessary feature and model changes.
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.95\linewidth]{figures/evaluation/eval_drift_counts.png}
-\caption{ADWIN drift alarms by dataset and selected method.}
+\caption{\new{All evaluated datasets:} ADWIN drift alarms by dataset and selected method.}
 \label{fig:eval_drift_counts}
 \end{figure}
 
@@ -634,16 +775,21 @@ substantially faster than the strongest SRP baselines. This is the most
 important outcome of the project because CTR systems rely on calibrated
 probabilities rather than only hard class labels.
 
-The synthetic experiments provide an important limitation. On Agrawal streams,
-standard adaptive trees and periodic online ranking already recover very well,
-while DASRP underperforms. This means that the proposed architecture should not
-be treated as universally superior. It is most appropriate when the feature
-space is large, sparse, and unstable.
+\new{The expanded synthetic experiments provide an important limitation. On
+Agrawal and RBF streams, standard adaptive trees or vanilla SRP can recover very
+well because the generated concepts are comparatively clean and quickly
+learnable. DASRP is therefore not universally superior. Its strongest use case
+is a stream where feature relevance itself is unstable and where selective
+subspace repair avoids the high cost of rebuilding a full ensemble. The LED
+irrelevant-attribute experiment supports this interpretation, while the noisy
+and high-dimensional synthetic runs show that ADWIN and IG thresholds require
+careful per-stream tuning.}
 
-Future work should include full million-instance experiments, a formal
-recovery-time metric around drift events, and a more systematic search over
+\new{Future work should include full million-instance experiments, a formal
+recovery-time metric around drift events, feature-level drift detectors in
+addition to the current error-rate ADWIN, and a more systematic search over
 ADWIN sensitivity, Information Gain thresholds, subspace sizes, reset ratio, and
-weight recovery rate.
+weight recovery rate.}
 
 \section{Team contributions}
 \label{app:contrib-clean}
@@ -657,11 +803,11 @@ weight recovery rate.
 \hline
 \textbf{Name} & \textbf{Contributions} & \textbf{Workload} \\
 \hline
-Hubert Jaczy\'nski & \textbf{Analytics and final evaluation:} concept drift detection in raw data with ADWIN; final evaluation and comparative analysis of the proposed algorithm against baselines. Fixes to method implementation. \textbf{Report:} final evaluation and conclusion sections. \textbf{Presentation creation.} & $\sim$32h\\
+Hubert Jaczy\'nski & \textbf{Analytics and final evaluation:} concept drift detection in raw data with ADWIN; final evaluation and comparative analysis of the proposed algorithm against baselines. \textbf{Report:} final evaluation and conclusion sections. \textbf{Presentation creation.} & $\sim$40h\\
 \hline
-Aleksandra K{\l}os & \textbf{Data engineering and baseline evaluation:} preprocessing Avazu and Criteo streams, exploratory data analysis, feature hashing, missing-value imputation, baseline evaluation in MOA, and scripts for Log Loss and adaptation-gap analysis. \textbf{Report:} introduction, data preparation, and evaluation methodology sections. \textbf{Presentation creation.} & $\sim$32h \\
+Aleksandra K{\l}os & \textbf{Data engineering and baseline evaluation:} preprocessing Avazu and Criteo streams, exploratory data analysis, feature hashing, missing-value imputation, baseline evaluation in MOA, and scripts for Log Loss and adaptation-gap analysis. \textbf{Report:} introduction, data preparation, and evaluation methodology sections. \textbf{Presentation creation.} & $\sim$40h \\
 \hline
-Jakub Oganowski & \textbf{Algorithm implementation:} Java implementation of the SRP/OFS integration, drift-aware feature selection, subspace adaptation, and ensemble weighting. \textbf{Report:} architecture of the proposed solution section. \textbf{Presentation creation.} & $\sim$32h \\
+Jakub Oganowski & \textbf{Algorithm implementation:} Java implementation of the SRP/OFS integration, drift-aware feature selection, subspace adaptation, and ensemble weighting. \textbf{Report:} architecture of the proposed solution section. \textbf{Presentation creation.} & $\sim$40h \\
 \hline
 \end{tabular}%
 }
@@ -691,6 +837,138 @@ Jakub Oganowski & Concept drift detection in Criteo; \textbf{Algorithm implement
 \end{table}
 
 \fi
+
+\section{Updates compared to the preliminary report}
+\label{sec:response}
+
+{\color{blue}
+All newly added or revised content is highlighted in blue throughout the report.
+Table~\ref{tab:changes} maps each reviewer remark to the section(s) modified in
+response.
+
+\footnotesize
+\begin{longtable}{|>{\raggedright\arraybackslash}p{0.31\textwidth}
+                |>{\raggedright\arraybackslash}p{0.41\textwidth}
+                |>{\raggedright\arraybackslash}p{0.18\textwidth}|}
+\caption{Changes addressed in response to the reviewer comments.}
+\label{tab:changes}\\
+\hline
+\textbf{Reviewer remark} & \textbf{Change applied} & \textbf{Changed section(s)} \\
+\hline
+\textit{Add pseudocode, e.g. with algorithm2e, for the main pipeline and
+drift-aware feature selection.}
+&
+Added two \texttt{algorithm2e} blocks: the prequential evaluation/adaptation
+pipeline and the ADWIN-triggered drift-aware feature-selection procedure.
+&
+Sect.~4.1, Algorithm~\ref{alg:main_pipeline}; Sect.~4.3,
+Algorithm~\ref{alg:drift_aware_selector}. \\
+\hline
+\textit{Clarify how feature selection influences existing models such as HT,
+and whether past models are dropped or new splits are constrained.}
+&
+Clarified that HT, HAT, and vanilla SRP receive physically filtered instances.
+When a dynamic selector changes the feature subset, the model is reinitialised
+on a new filtered header; old splits are dropped, not retroactively constrained.
+&
+Sect.~4.2 and Sect.~4.3. \\
+\hline
+\textit{Clarify the input of ADWIN. Is there one ADWIN instance per feature?}
+&
+Clarified that the Java evaluation uses one ADWIN detector per evaluated model
+run. Its input is the online 0/1 prediction-error stream. There is not one
+ADWIN instance per feature.
+&
+Sect.~4.3 and Algorithm~\ref{alg:main_pipeline}. \\
+\hline
+\textit{Add dataset names to plot captions; fix \texttt{site\_x\_hour}; explain
+how IG is computed and based on what data.}
+&
+Added dataset names to captions, fixed the \texttt{site\_x\_hour} formatting,
+defined it as a site/hour interaction, and described IG estimation on warm-up,
+sliding, pre-drift, and post-drift buffers.
+&
+Sect.~2.3, Sect.~3.1, Sect.~4.2, figure captions. \\
+\hline
+\textit{Reconsider Criteo rolling statistics because imputed values may disturb
+the calculations.}
+&
+Clarified and revised the preprocessing description: rolling statistics for
+\texttt{I1}--\texttt{I5} are computed before zero-imputation, with missing
+values skipped by the window estimator. Remaining missing original values are
+then zero-filled.
+&
+Sect.~2.3. \\
+\hline
+\textit{Add at least three more synthetic streams, including one larger
+dimensionality stream.}
+&
+Added \texttt{agrawal\_noisy}, \texttt{led\_irrelevant}, and
+\texttt{rbf\_highdim}. The RBF stream has 100 attributes. The final evaluation
+now contains 63 baseline and 21 drift-aware runs over seven datasets.
+&
+Sect.~2.4, Table~\ref{tab:datasets_summary}, Sect.~5.1, Sect.~5.4. \\
+\hline
+\textit{Comment whether drift detected in Sect. 3.1 is the only drift present;
+add drift detection experiments based on other features and error rates.}
+&
+Added an explicit comment that CTR drift is not the only possible drift. The
+main Java experiments additionally log ADWIN alarms from model error-rate
+streams, and the final evaluation reports drift counts by dataset and method.
+&
+Sect.~3.1, Sect.~4.3, Fig.~\ref{fig:eval_drift_counts}. \\
+\hline
+\textit{Use Hoeffding Tree as another baseline.}
+&
+Added HT to the baseline model set and explicitly included HT rows in the real
+CTR result table. HT is also included in the committed 63-run baseline
+summary.
+&
+Sect.~4.2, Table~\ref{tab:real_final_metrics}, Sect.~5.1. \\
+\hline
+\textit{SRP + online ranking results are missing for Avazu.}
+&
+Added the Avazu SRP + online ranking row to the real CTR result table and kept
+the corresponding row in the committed results CSV.
+&
+Table~\ref{tab:real_final_metrics}; \texttt{results\_summary.csv}. \\
+\hline
+\textit{Could a feature of low yet growing IG replace a high-IG feature that is
+not improving? Consider modifying the mechanism.}
+&
+Clarified the implemented safeguard: the selected set is anchored in the
+post-drift top-$K$ ranking and is shrunk by $IG_{after}$ if it grows beyond
+$K$. Thus a low-IG feature cannot replace a still-high-IG feature solely
+because its IG increased.
+&
+Sect.~4.3. \\
+\hline
+\textit{Fig. 11 should include vanilla SRP.}
+&
+Added a final Log Loss comparison plot over all seven datasets that explicitly
+contains vanilla SRP together with HT, HAT, HT-DA, HAT-DA, and DASRP.
+&
+Fig.~\ref{fig:model_comparison_logloss_all}, Sect.~5.4. \\
+\hline
+\textit{DASRP may drop relevant features. Analyse which features are left and
+possibly revise DASRP.}
+&
+Clarified that DASRP repairs only learners whose subspaces overlap sufficiently
+with weakened features. Unaffected learners preserve their old subspaces. The
+final discussion also identifies over-adaptation under frequent alarms as a
+limitation requiring per-stream threshold calibration.
+&
+Sect.~4.4, Sect.~5.4, Conclusion. \\
+\hline
+\end{longtable}
+}
+
+
 \printbibliography
+
+\listoffigures
+
+\listoftables
+
 
 \end{document}
