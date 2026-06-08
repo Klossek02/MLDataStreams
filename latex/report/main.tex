@@ -191,7 +191,7 @@ As demonstrated in EDA, data streams with high cardinality and missing values ca
 \paragraph{Temporal and moving window features}
 To help the model adapt to recent trends and concept drift, we have created dynamic features:
 \begin{itemize}
-    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{such as \texttt{site\_x\_hour}. This feature is built as a raw interaction string of the form \texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day; together with the other categorical columns it is then passed to the feature hasher, so the interaction is hashed afterwards rather than being a concatenation of already-hashed values}. We have also used a sliding window of 1000 instances to calculate the recent CTR and interaction frequencies for sites and apps.
+    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{such as \texttt{site\_x\_hour}. This feature is built as a raw interaction string of the form \texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day; together with the other categorical columns it is then passed to the feature hasher, so the interaction is hashed afterwards rather than being a concatenation of already-hashed values}. We have also used a sliding window of 1000 instances to calculate \new{the recent site CTR, the recent app CTR, the recent site frequency, and the site frequency change}.
     \item \textbf{Criteo:} \new{The moving averages, standard deviations, and deviations from the mean were first computed on the raw numerical columns (\texttt{I1}--\texttt{I5}) using a sliding window of 1000 instances, with missing values skipped by the windowed estimator (\texttt{min\_periods=1}). Only after these statistics have been recorded, the remaining \texttt{NaN} values in the original columns have been replaced by zero. This order ensures that zero-imputed entries do not distort the window statistics.}
 \end{itemize}
 
@@ -574,10 +574,11 @@ signed Information Gain change $\Delta IG_i$.}}
 
 The proposed model, Drift-Aware SRP (DASRP), extends the SRP framework along
 two complementary axes. First, ensemble subspaces become responsive to
-feature drift instead of being fixed at construction time. Second, members
-whose subspaces are reconstructed do not vote at full strength immediately:
-the ensemble keeps track of how much fresh evidence each member has seen and
-weighs its vote accordingly during recovery. Both mechanisms are designed to
+feature drift instead of being fixed at construction time. Second, \new{members
+whose subspaces are most heavily affected by the drift do not vote at full
+strength immediately:} the ensemble keeps track of how much fresh evidence each
+\new{such} member has seen and weighs its vote accordingly during recovery.
+Both mechanisms are designed to
 avoid the failure mode of a naive reset, in which the ensemble loses all
 accumulated knowledge on every drift event.
 
@@ -808,9 +809,10 @@ later, while DASRP avoids the strongest late loss increase.
 \subsection{Runtime analysis}
 Runtime is a key constraint in streaming systems. A model that provides good
 Log Loss but cannot process the stream fast enough is not practical. DASRP was
-much faster than the strongest SRP baselines on real CTR streams because it
-adapts only selected ensemble members instead of rebuilding or maintaining a
-large full SRP configuration.
+much faster than the strongest SRP baselines on real CTR streams \new{because it
+uses a compact custom ensemble and, on drift, repairs only the subspaces of the
+affected learners, instead of running the heavier vanilla SRP baseline
+configuration with its per-learner background trees and detectors.}
 
 \begin{figure}[H]
 \centering
