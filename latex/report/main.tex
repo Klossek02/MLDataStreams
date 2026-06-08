@@ -771,9 +771,9 @@ Avazu & SRP + static top-K & 0.8243 & 0.4659 & 0.7022 \\
 Avazu & \textbf{DASRP + drift-aware SRP} & \textbf{0.8253} & \textbf{0.4332} & \textbf{0.7048} \\
 \midrule
 Criteo & \new{HT + no selector} & \new{0.7497} & \new{1.0110} & \new{0.6297} \\
-Criteo & SRP + online ranking & 0.7557 & 0.5522 & 0.6512 \\
-Criteo & \textbf{DASRP + drift-aware SRP} & \textbf{0.7583} & \textbf{0.5291} & 0.6511 \\
-Criteo & SRP + static top-K & \textbf{0.7634} & 0.5622 & \textbf{0.6754} \\
+Criteo & \new{SRP + online ranking} & \new{0.7561} & \new{0.5513} & \new{0.6585} \\
+Criteo & \textbf{DASRP + drift-aware SRP} & \new{0.7579} & \new{\textbf{0.5294}} & \new{0.6669} \\
+Criteo & \new{SRP + static top-K} & \new{\textbf{0.7654}} & \new{0.5562} & \new{\textbf{0.6865}} \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -781,8 +781,8 @@ Criteo & SRP + static top-K & \textbf{0.7634} & 0.5622 & \textbf{0.6754} \\
 The most important result is that DASRP achieved the lowest final Log Loss on
 both real CTR datasets. On Avazu, DASRP improved Log Loss from 0.4659 for the
 best SRP baseline to 0.4332, which is a relative reduction of about 7.0\%. On
-Criteo, DASRP improved Log Loss from 0.5522 to 0.5291, a relative reduction of
-about 4.2\%. This supports the hypothesis that drift-aware feature adaptation is
+Criteo, \new{DASRP improved Log Loss from 0.5513 for the best SRP baseline
+(online ranking) to 0.5294, a relative reduction of about 4.0\%}. This supports the hypothesis that drift-aware feature adaptation is
 useful in high-dimensional CTR streams.
 
 \begin{figure}[H]
@@ -822,8 +822,9 @@ above 1 mean the baseline was slower than DASRP.}
 \label{fig:eval_real_speedup}
 \end{figure}
 
-On Avazu, SRP with static top-K took approximately 21 times the DASRP runtime,
-and SRP with online ranking took approximately 10.8 times the DASRP runtime. HT
+On Avazu, \new{SRP with static top-K took approximately 12.7 times the DASRP
+runtime, and SRP with online ranking took approximately 6.0 times the DASRP
+runtime}. HT
 was faster than DASRP, but it was much worse in final Log Loss. This indicates
 that DASRP is not the fastest method overall, but it provides an attractive
 quality/runtime trade-off among the competitive ensemble methods.
