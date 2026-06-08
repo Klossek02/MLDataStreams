@@ -16,7 +16,7 @@
 \usepackage[T1]{fontenc}
 \DeclareTextFontCommand{\texttthyphen}{\ttfamily\hyphenchar\font=`\-}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta, positioning}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, fit}
 \usepackage{csquotes}
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 \usepackage{xcolor}
@@ -57,7 +57,7 @@ Besides, the phenomenon of feature drift, described in the literature on online 
 
 Based on the observations described, our project aims to develop a state-of-the-art model capable of rapid adaptation in a non-stationary environment. The streaming random patches (SRP) algorithm \cite{gomes2019streaming} has been chosen to be the foundation. We have decided to choose it as it is currently one of the most effective ensemble solutions for data streams. Furthermore, the literature states that SRP is characterized by the use of background models that begin learning a new concept immediately after the ADWIN detector detects a drift.
 
-Yet, our project's innovation extends the SRP mechanism with dynamic feature selection, described as online feature selection (OFS) \cite{liu2022adaptation}. Instead of relying on random subspaces, our algorithm will evaluate each feature's usefulness on the fly. This may show that when drift is detected, newly created ensemble components, background learners, will receive access to the most recent and informative parameters. They eventually focus on shortening recovery time and reducing logarithmic loss \cite{vovk2015fundamental}.
+Yet, our project's innovation extends the SRP mechanism with dynamic feature selection, described as online feature selection (OFS) \cite{liu2022adaptation}. \new{Our algorithm still initialises the ensemble with random feature subspaces, as in standard SRP, but instead of leaving these subspaces fixed it evaluates each feature's usefulness on the fly and repairs the affected subspaces when drift is detected.} This may show that when drift is detected, \new{the reinitialised ensemble members} receive access to the most recent and informative \new{features}. They eventually focus on shortening recovery time and reducing logarithmic loss \cite{vovk2015fundamental}.
 
 
 
@@ -191,7 +191,7 @@ As demonstrated in EDA, data streams with high cardinality and missing values ca
 \paragraph{Temporal and moving window features}
 To help the model adapt to recent trends and concept drift, we have created dynamic features:
 \begin{itemize}
-    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{(\texttt{site\_x\_hour}), computed as the concatenation of the hashed \texttt{site\_id} and the hour-of-day integer}. We have also used a sliding window of 1000 instances to calculate the recent CTR and interaction frequencies for sites and apps.
+    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{such as \texttt{site\_x\_hour}. This feature is built as a raw interaction string of the form \texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day; together with the other categorical columns it is then passed to the feature hasher, so the interaction is hashed afterwards rather than being a concatenation of already-hashed values}. We have also used a sliding window of 1000 instances to calculate the recent CTR and interaction frequencies for sites and apps.
     \item \textbf{Criteo:} \new{The moving averages, standard deviations, and deviations from the mean were first computed on the raw numerical columns (\texttt{I1}--\texttt{I5}) using a sliding window of 1000 instances, with missing values skipped by the windowed estimator (\texttt{min\_periods=1}). Only after these statistics have been recorded, the remaining \texttt{NaN} values in the original columns have been replaced by zero. This order ensures that zero-imputed entries do not distort the window statistics.}
 \end{itemize}
 
@@ -522,6 +522,53 @@ shrunk again according to $IG_{after}$. Therefore a low but growing feature can
 enter only when it has become competitive after the drift or when another
 selected feature has genuinely weakened.}
 
+\new{Figure~\ref{fig:drift_aware_selector_flow} summarises the control flow of
+the drift-aware selector as an event-driven, two-phase process.}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.55cm and 0.9cm,
+    every node/.style={font=\small},
+    box/.style={draw, rounded corners=2pt, align=center,
+                minimum width=3.4cm, minimum height=0.95cm},
+    stable/.style={box, fill=blue!8},
+    freeze/.style={box, fill=orange!12},
+    act/.style={box, fill=green!12},
+    dec/.style={draw, diamond, aspect=2, align=center, fill=yellow!18,
+                inner sep=1pt, minimum width=3.2cm},
+    arrow/.style={-{Stealth[length=2mm]}, thick}
+]
+    \node[stable] (roll) {Stable phase:\\sliding buffer rolls forward};
+    \node[dec, below=of roll] (alarm) {ADWIN\\alarm?};
+    \node[freeze, below=of alarm] (before)
+        {Freeze $B_{before}$;\\compute $IG_{before}(i)$};
+    \node[freeze, below=of before] (collect)
+        {Collect $W$ post-drift\\instances into $B_{after}$};
+    \node[freeze, below=of collect] (after)
+        {Compute $IG_{after}(i)$ and\\$\Delta IG_i = IG_{after}(i) - IG_{before}(i)$};
+    \node[act, below=of after] (split)
+        {Strengthened: $\Delta IG_i > \tau$\\Weakened: $\Delta IG_i < -\tau$};
+    \node[act, below=of split] (rebuild)
+        {Update top-$K$ set; shrink to $K$\\by $IG_{after}$; emit $(R, A)$};
+
+    \draw[arrow] (roll) -- (alarm);
+    \draw[arrow] (alarm) -- node[right]{yes} (before);
+    \draw[arrow] (alarm.west) -- ++(-2.2,0) node[above]{no} |- (roll.west);
+    \draw[arrow] (before) -- (collect);
+    \draw[arrow] (collect) -- (after);
+    \draw[arrow] (after) -- (split);
+    \draw[arrow] (split) -- (rebuild);
+    \draw[arrow] (rebuild.east) -- ++(2.2,0) |- (roll.east);
+\end{tikzpicture}
+\caption{\new{Control flow of the drift-aware feature selector
+(Algorithm~\ref{alg:drift_aware_selector}). While stable, the buffer simply
+rolls forward; an ADWIN alarm freezes the pre-drift Information Gain, a further
+window of $W$ instances is collected, and the selected set is updated from the
+signed Information Gain change $\Delta IG_i$.}}
+\label{fig:drift_aware_selector_flow}
+\end{figure}
+
 \subsection{Drift-Aware SRP}
 \label{subsec:drift_aware_srp}
 
@@ -542,14 +589,30 @@ counts the number of weakened features inside its subspace; learners below a
 configurable overlap threshold are left untouched, since their predictive
 basis was not affected by the drift. Learners above the threshold have their
 weak features replaced, preferring strengthened candidates and falling back
-to neutral features when the strengthened pool is too small. The fraction of
-the original subspace that had to be replaced is then compared against a
-reset ratio: subspaces that lost more than this fraction are flagged for full
-reinitialisation, since the surviving learner state would be inconsistent
-with its new feature set.
+to neutral features when the strengthened pool is too small. \new{Every learner
+whose subspace is actually modified is then reinitialised on its new
+sub-header, since a Hoeffding tree built on the old attribute set cannot be
+reused consistently once that attribute set changes. The reset ratio does
+\emph{not} decide whether a learner is reinitialised; instead, the fraction of
+the original subspace that had to be replaced is compared against the reset
+ratio only to decide which of the reinitialised learners are additionally
+flagged for voting-weight reduction during recovery.}
 
-The \texttt{WeightManager} mirrors the reset decision on the voting side.
-Members reported by the subspace manager as reset have their weight reduced
+\new{Formally, let $S_m$ be the current subspace of learner $m$ and $W$ the
+weakened feature set emitted by the selector. The learner is adapted only if it
+shares at least $\omega$ weak features,
+\[
+|S_m \cap W| \;\geq\; \omega \quad (\text{minimum overlap}),
+\]
+and, once adapted, it is additionally flagged for weight reduction when the
+weakened fraction of its old subspace reaches the reset ratio $\rho$,
+\[
+o_m \;=\; \frac{|S_m \cap W|}{|S_m|} \;\geq\; \rho .
+\]
+In our experiments $\omega \in \{1,2\}$ and $\rho = 0.5$.}
+
+The \texttt{WeightManager} mirrors \new{this weight} decision on the voting side.
+Members \new{flagged by the subspace manager as exceeding the reset ratio} have their weight reduced
 to a configurable value (0.3 in our experiments) and recover linearly toward
 the normal weight 1.0 at a fixed rate per training instance. Aggregation is
 performed as a weighted average,
@@ -557,8 +620,15 @@ performed as a weighted average,
 \hat{p} \;=\; \frac{\sum_{i=1}^{N} w_i \, p_i}{\sum_{i=1}^{N} w_i},
 \]
 so that freshly reset members influence the ensemble in proportion to the
-amount of new data they have processed. With a recovery rate of 0.001 per
-instance, full recovery takes roughly 700 instances, which is comparable to
+amount of new data they have processed. \new{A flagged learner $m$ has its
+weight set to $w_{\text{reset}}$ at the reset instant $t_m^{0}$ and then recovers
+linearly,
+\[
+w_m(t) \;=\; \min\!\bigl(w_{\text{norm}},\; w_{\text{reset}} + r\,(t - t_m^{0})\bigr),
+\]
+with $w_{\text{reset}} = 0.3$, $w_{\text{norm}} = 1.0$, and recovery rate
+$r = 0.001$ per instance.} With a recovery rate of 0.001 per
+instance, full recovery takes roughly $\tfrac{w_{\text{norm}} - w_{\text{reset}}}{r} = 700$ instances, which is comparable to
 the data volume needed by a Hoeffding tree to perform its first split.
 
 \new{DASRP can remove a feature from a learner only when that feature appears
@@ -579,11 +649,67 @@ The adaptation cycle ties everything together as follows:
     the drift and emits the weakened and strengthened feature sets.
     \item The \texttt{SubspaceManager} removes weak features from affected
     subspaces and fills the gaps using strengthened features whenever possible.
-    \item Learners whose subspace changed beyond the reset ratio are
-    reinitialised on the new sub-header.
-    \item The \texttt{WeightManager} reduces the vote weight of reset learners
-    and gradually restores it during the subsequent training instances.
+    \item \new{Every learner whose subspace was modified is reinitialised on
+    its new sub-header.}
+    \item \new{Learners whose replaced fraction exceeds the reset ratio are
+    additionally} flagged \new{for weight reduction; the \texttt{WeightManager}
+    lowers their vote weight} and gradually restores it during the subsequent
+    training instances.
 \end{enumerate}
+
+\new{Figure~\ref{fig:dasrp_flow} shows how a single ADWIN alarm is turned into a
+per-learner repair-or-keep decision and the subsequent weighted vote.}
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    node distance=0.55cm and 0.7cm,
+    every node/.style={font=\small},
+    box/.style={draw, rounded corners=2pt, align=center,
+                minimum width=3.6cm, minimum height=0.95cm},
+    src/.style={box, fill=blue!8},
+    dec/.style={draw, diamond, aspect=2.2, align=center, fill=yellow!18,
+                inner sep=1pt, minimum width=3.4cm},
+    keep/.style={box, fill=green!12},
+    rep/.style={box, fill=red!10},
+    wm/.style={box, fill=orange!12},
+    arrow/.style={-{Stealth[length=2mm]}, thick}
+]
+    \node[src] (adwin) {ADWIN error monitor:\\confirmed drift};
+    \node[src, below=of adwin] (sel)
+        {Selector emits weakened $W$\\and strengthened $T$};
+    \node[dec, below=of sel] (test)
+        {$|S_i \cap W| \geq \omega$\\for learner $h_i$?};
+    \node[keep, left=1.7cm of test] (keep)
+        {KEEP:\\$h_i$ untouched};
+    \node[rep, below=of test] (repair)
+        {Replace weak features in $S_i$\\ (prefer $T$); reinitialise $h_i$};
+    \node[dec, below=of repair] (reset)
+        {$o_i = \dfrac{|S_i \cap W|}{|S_i|} \geq \rho$?};
+    \node[wm, below=of reset] (weight)
+        {WeightManager: $w_i \leftarrow w_{\text{reset}}$,\\linear recovery to $w_{\text{norm}}$};
+    \node[box, fill=blue!8, below=of weight] (vote)
+        {Weighted vote\\$\hat{p} = \frac{\sum w_i p_i}{\sum w_i}$};
+
+    \draw[arrow] (adwin) -- (sel);
+    \draw[arrow] (sel) -- (test);
+    \draw[arrow] (test) -- node[above]{no} (keep);
+    \draw[arrow] (test) -- node[right]{yes} (repair);
+    \draw[arrow] (repair) -- (reset);
+    \draw[arrow] (reset) -- node[right]{yes} (weight);
+    \draw[arrow] (reset.east) -- ++(2.0,0) node[above]{no} |- (vote.east);
+    \draw[arrow] (weight) -- (vote);
+    \draw[arrow] (keep.south) |- (vote.west);
+\end{tikzpicture}
+\caption{\new{DASRP adaptation cycle. After a confirmed drift, each learner
+$h_i$ is kept untouched when its subspace overlaps the weakened set by fewer
+than $\omega$ features; otherwise its weak features are replaced and the learner
+is reinitialised. Only learners whose weakened fraction $o_i$ reaches the reset
+ratio $\rho$ have their voting weight reduced and then linearly recovered. The
+ensemble prediction is the weight-normalised average of the member
+probabilities.}}
+\label{fig:dasrp_flow}
+\end{figure}
 
 DASRP uses online bagging with $\lambda=1$ rather than
 the $\lambda=6$ value of the reference SRP implementation; this reduces the
@@ -855,8 +981,12 @@ and whether past models are dropped or new splits are constrained.}
 Clarified that HT, HAT, and vanilla SRP receive physically filtered instances.
 When a dynamic selector changes the feature subset, the model is reinitialised
 on a new filtered header; old splits are dropped, not retroactively constrained.
+\new{For DASRP, every ensemble learner whose subspace is modified is likewise
+reinitialised; the reset ratio only controls which of those learners also have
+their voting weight temporarily reduced.}
 &
-Subsection~\ref{subsec:baseline} and Subsection~\ref{subsec:drift-aware}. \\
+Subsection~\ref{subsec:baseline}, Subsection~\ref{subsec:drift-aware}\new{, and
+Subsection~\ref{subsec:drift_aware_srp}}. \\
 \hline
 \textit{Clarify the input of ADWIN. Is there one ADWIN instance per feature?}
 &
