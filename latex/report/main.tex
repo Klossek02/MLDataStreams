@@ -72,7 +72,7 @@ RTB datasets are characterized by their vast volume and sparsity. Special care w
 
 The dataset has been obtained from the Kaggle competition\footnote{Kaggle, \textit{Click-Through Rate Prediction - Avazu}, \url{https://www.kaggle.com/competitions/avazu-ctr-prediction/}.}. The competition data provides separate training and testing files. However, for the purpose of this EDA and later for model evaluations, we have used \texttt{train.csv} data. Besides, to save RAM on our devices, while preserving the nature of streaming data, the first $1,000,000$ records has been analyzed. 
 
-The subset consists of 24 columns in total: 23 predictive features and 1 target variable (\texttt{click}). The vast majority of the features are categorical and include explicit attributes describing the user's hardware and site context, such as \texttt{device\_id}, \texttt{device\_ip}, \texttt{site\_domain}, \texttt{app\_category}, as well as anonymized categorical variables like \texttt{C1}, \texttt{C14}--\texttt{C21}. 
+The subset consists of 24 columns in total: 23 predictive features and 1 target variable (\texttt{click}). The vast majority of the features are categorical and include explicit attributes describing the user's hardware and site context, such as \texttt{device\_id}, \texttt{device\_ip}, \texttt{site\_domain}, \new{\texttt{site\_id} (the anonymised publisher-site identifier), \texttt{app\_id}, \texttt{device\_type},} \texttt{app\_category}, as well as anonymized categorical variables like \texttt{C1}, \texttt{C14}--\texttt{C21}.
 
 \paragraph{Target variable and class imbalance}
 The target feature, \texttt{click}, is a binary variable that indicates whether an advertisement was clicked (1) or not (0). The distribution analysis showed a serious class imbalance. It is a common characteristic of RTB systems. Specifically, only 16.02\% of the impressions resulted in a click, whereas 83.98\% were ignored. As seen in Figure~\ref{fig:avazu_imbalance}, this highly skewed distribution ($P(Y=0) \gg P(Y=1)$) disqualifies the use of the traditional accuracy metric and encourages us to use the probabilistic logarithmic loss function for further model evaluation.
@@ -191,7 +191,7 @@ As demonstrated in EDA, data streams with high cardinality and missing values ca
 \paragraph{Temporal and moving window features}
 To help the model adapt to recent trends and concept drift, we have created dynamic features:
 \begin{itemize}
-    \item \textbf{Avazu:} We have extracted specific time details (hour, day, week) and created interaction features \new{such as \texttt{site\_x\_hour}. This feature is built as a raw interaction string of the form \texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day; together with the other categorical columns it is then passed to the feature hasher, so the interaction is hashed afterwards rather than being a concatenation of already-hashed values}. We have also used a sliding window of 1000 instances to calculate \new{the recent site CTR, the recent app CTR, the recent site frequency, and the site frequency change}.
+    \item \textbf{Avazu:} \new{From the raw \texttt{hour} timestamp we derived five numeric time attributes: the hour of day, the day of month, the day of week, a binary weekend flag, and a coarse time-of-day bucket. We then created \emph{three} categorical interaction features, all following the same pattern \texttt{base}\,+\,\texttt{"\_h"}\,+\,hour-of-day, namely \texttt{site\_x\_hour}, \texttt{app\_x\_hour}, and \texttt{device\_x\_hour}. Their base columns \texttt{site\_id}, \texttt{app\_id}, and \texttt{device\_type} are raw (anonymised) Avazu categorical fields identifying, respectively, the publisher site, the application, and the device type on which the impression was shown; for example \texttt{site\_x\_hour}\,=\,\texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day. These three interaction strings are appended to the list of categorical columns and passed to the feature hasher together with them, so each interaction is hashed as a single token rather than as a concatenation of already-hashed values. They are therefore absorbed into the 100 hashed columns and do not add extra numeric attributes. In addition, using a sliding window over the last 1000 occurrences \emph{of each individual site or app}, we added four numeric attributes to the data: the recent site CTR and the recent app CTR (rolling click means grouped by \texttt{site\_id} and \texttt{app\_id}), the recent site frequency (rolling impression count per \texttt{site\_id}), and the site frequency change (the first difference of that count). Every rolling statistic is shifted by one instance so that the current impression never contributes to its own feature value, which prevents target leakage.}
     \item \textbf{Criteo:} \new{The moving averages, standard deviations, and deviations from the mean were first computed on the raw numerical columns (\texttt{I1}--\texttt{I5}) using a sliding window of 1000 instances, with missing values skipped by the windowed estimator (\texttt{min\_periods=1}). Only after these statistics have been recorded, the remaining \texttt{NaN} values in the original columns have been replaced by zero. This order ensures that zero-imputed entries do not distort the window statistics.}
 \end{itemize}
 
@@ -204,7 +204,7 @@ As mentioned in Section~\ref{subsec:card}, techniques like one-hot encoding crea
 \end{enumerate}
 
 \paragraph{Final state}
-In the final step, we have merged all these parts together. For Avazu, we have combined the new time-based features with the 100 hashed columns. For Criteo on the other hand, we have combined the 13 original numeric columns, the 15 new moving statistics, and the 100 hashed columns. This optimized data has been then to train and evaluate our models.
+In the final step, we have merged all these parts together. For Avazu, we have combined \new{the five numeric time attributes and the four numeric sliding-window attributes (nine numeric features in total)} with the 100 hashed columns\new{, which gives the 109 Avazu features reported in Table~\ref{tab:datasets_summary}}. For Criteo on the other hand, we have combined the 13 original numeric columns, the 15 new moving statistics, and the 100 hashed columns. This optimized data has then been used to train and evaluate our models.
 
 
 \subsection{\new{Synthetic data streams}}
@@ -1004,9 +1004,13 @@ how IG is computed and based on what data.}
 &
 Added dataset names to captions, fixed the \texttt{site\_x\_hour} formatting,
 defined it as a site/hour interaction, and described IG estimation on warm-up,
-sliding, pre-drift, and post-drift buffers.
+sliding, pre-drift, and post-drift buffers. \new{In the second revision we
+additionally defined \texttt{site\_id}, \texttt{app\_id} and \texttt{device\_type}
+as raw Avazu columns, listed all three \texttt{*\_x\_hour} interaction features
+explicitly, and clarified that the four sliding-window CTR/frequency statistics
+are numeric attributes added to the data (part of the 109 Avazu features).}
 &
-Subsection~\ref{subsec:synth}, Subsection~\ref{subsec:drift}, Subsection~\ref{subsec:baseline}, figure captions. \\
+\new{Subsection~\ref{subsec:feat},} Subsection~\ref{subsec:synth}, Subsection~\ref{subsec:drift}, Subsection~\ref{subsec:baseline}, figure captions. \\
 \hline
 \textit{Reconsider Criteo rolling statistics because imputed values may disturb
 the calculations.}
