@@ -191,7 +191,7 @@ As demonstrated in EDA, data streams with high cardinality and missing values ca
 \paragraph{Temporal and moving window features}
 To help the model adapt to recent trends and concept drift, we have created dynamic features:
 \begin{itemize}
-    \item \textbf{Avazu:} \new{From the raw \texttt{hour} timestamp we derived five numeric time attributes: the hour of day, the day of month, the day of week, a binary weekend flag, and a coarse time-of-day bucket. We then created \emph{three} categorical interaction features, all following the same pattern \texttt{base}\,+\,\texttt{"\_h"}\,+\,hour-of-day, namely \texttt{site\_x\_hour}, \texttt{app\_x\_hour}, and \texttt{device\_x\_hour}. Their base columns \texttt{site\_id}, \texttt{app\_id}, and \texttt{device\_type} are raw (anonymised) Avazu categorical fields identifying, respectively, the publisher site, the application, and the device type on which the impression was shown; for example \texttt{site\_x\_hour}\,=\,\texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day. These three interaction strings are appended to the list of categorical columns and passed to the feature hasher together with them, so each interaction is hashed as a single token rather than as a concatenation of already-hashed values. They are therefore absorbed into the 100 hashed columns and do not add extra numeric attributes. In addition, using a sliding window over the last 1000 occurrences \emph{of each individual site or app}, we added four numeric attributes to the data: the recent site CTR and the recent app CTR (rolling click means grouped by \texttt{site\_id} and \texttt{app\_id}), the recent site frequency (rolling impression count per \texttt{site\_id}), and the site frequency change (the first difference of that count). Every rolling statistic is shifted by one instance so that the current impression never contributes to its own feature value, which prevents target leakage.}
+    \item \textbf{Avazu:} \new{From the raw \texttt{hour} timestamp we derived five numeric time attributes: the hour of day, the day of month, the day of week, a binary weekend flag, and a coarse time-of-day bucket. We then created \emph{three} categorical interaction features, all following the same pattern \texttt{base}\,+\,\texttt{"\_h"}\,+\,hour-of-day, namely \texttt{site\_x\_hour}, \texttt{app\_x\_hour}, and \texttt{device\_x\_hour}. Their base columns \texttt{site\_id}, \texttt{app\_id}, and \texttt{device\_type} are raw (anonymised) Avazu categorical fields identifying, respectively, the publisher site, the application, and the device type on which the impression was shown; for example \texttt{site\_x\_hour}\,=\,\texttt{site\_id}\,+\,\texttt{"\_h"}\,+\,hour-of-day. These three interaction strings are appended to the list of categorical columns and passed to the feature hasher together with them, so each interaction is hashed as a single token rather than as a concatenation of already-hashed values; they are therefore absorbed into the 100 hashed columns and do not add extra numeric attributes. In addition, we added four numeric attributes derived from per-site and per-app rolling windows of length 1000: the recent site CTR and the recent app CTR (rolling click means grouped by \texttt{site\_id} and \texttt{app\_id}), the recent site frequency (rolling impression count per \texttt{site\_id}), and the site frequency change (the first difference of that rolling count). The three rolling statistics are shifted by one instance, and the frequency change is computed from the already-shifted count, so the current impression never contributes to its own feature value and no target leakage occurs.}
     \item \textbf{Criteo:} \new{The moving averages, standard deviations, and deviations from the mean were first computed on the raw numerical columns (\texttt{I1}--\texttt{I5}) using a sliding window of 1000 instances, with missing values skipped by the windowed estimator (\texttt{min\_periods=1}). Only after these statistics have been recorded, the remaining \texttt{NaN} values in the original columns have been replaced by zero. This order ensures that zero-imputed entries do not distort the window statistics.}
 \end{itemize}
 
@@ -383,10 +383,18 @@ Reset all metrics and reset $D$\;
     $e_t \leftarrow \mathbb{1}[\mathbb{1}(\hat{p}_t \geq 0.5) \neq y_t]$\;
     \If{$D.\mathrm{detect}(e_t)$}{
         Store a drift event at time $t$\;
-        Notify the drift handler attached to $F$ and/or $M$\;
+        Signal the drift to the feature selector $F$ (freeze its pre-drift statistics)\;
     }
     Train $M$ on $(\tilde{x}_t,y_t)$\;
     Update the feature selector buffer with the raw instance $(x_t,y_t)$\;
+    \If{$F$ emits a new feature subset (its post-drift window is complete)}{
+        Rebuild the filtered header from the new subset\;
+        \eIf{$M$ is a monolithic model (HT, HAT, or vanilla SRP)}{
+            Reinitialise $M$ on the new filtered header, dropping the obsolete splits\;
+        }{
+            Repair only the affected DASRP subspaces and reinitialise those learners\;
+        }
+    }
     \If{$t$ is a logging point}{
         Store the current metric snapshot\;
     }
@@ -476,8 +484,12 @@ $K$ if either operation overshoots.
 
 \new{For Avazu, Criteo, and the high-dimensional RBF stream, the selector
 keeps 20 features. For the Agrawal variants, where the feature space is small,
-it keeps 5 features. For the LED stream, it keeps 7 features, matching the
-number of truly relevant LED-segment attributes. Real CTR and RBF experiments
+it keeps 5 features. For the LED stream, it keeps 7 features. This value
+coincides with the number of relevant LED-segment attributes; because that count
+is part of the synthetic generator's ground truth and would be unknown on a real
+stream, we treat it as an oracle-informed setting and read the LED run as a
+controlled diagnostic of feature-relevance handling rather than as a label-free
+benchmark (see Section~\ref{subsec:drift_aware_srp}). Real CTR and RBF experiments
 use a 5,000-instance comparison window; Agrawal uses an 800-instance window;
 LED uses a 1,000-instance window. These values reflect the different
 dimensionality and drift dynamics of the streams.}
@@ -493,8 +505,8 @@ instances.}
 \begin{algorithm}[H]
 \color{blue}
 \caption{\new{Drift-aware feature selection after an ADWIN alarm}}
-\KwIn{Recent buffer $B$, top-$K$ size $K$, post-drift window length $W$, threshold $\tau$}
-\KwOut{Updated selected feature set $S_t$, removed features $R$, added features $A$}
+\KwIn{Recent buffer $B$, currently selected set $S_{old}$, top-$K$ size $K$, post-drift window length $W$, threshold $\tau$}
+\KwOut{Updated selected set $S_{new}$, removed features $R$, added features $A$}
 \If{ADWIN raises an alarm and no adaptation is already pending}{
     Freeze the current buffer as $B_{before}$\;
     Compute $IG_{before}(i)$ for every feature $i$ on $B_{before}$\;
@@ -505,11 +517,14 @@ instances.}
     Compute $IG_{after}(i)$ for every feature $i$ on $B_{after}$\;
     Compute $\Delta IG_i = IG_{after}(i)-IG_{before}(i)$\;
     $S_{base}\leftarrow$ top-$K$ features ranked by $IG_{after}$\;
-    Add features with $\Delta IG_i>\tau$ to $S_{base}$\;
-    Remove features with $\Delta IG_i<-\tau$ from $S_{base}$\;
-    If more than $K$ features remain, keep the $K$ highest by $IG_{after}$\;
-    $R\leftarrow S_{old}\setminus S_{new}$ and $A\leftarrow S_{new}\setminus S_{old}$\;
-    Rebuild the filtered header and notify the model adaptation listener\;
+    $S_{new}\leftarrow S_{base}$\;
+    Add to $S_{new}$ every feature with $\Delta IG_i>\tau$\;
+    Remove from $S_{new}$ every feature with $\Delta IG_i<-\tau$\;
+    \lIf{$|S_{new}|>K$}{keep in $S_{new}$ the $K$ features with the highest $IG_{after}$}
+    \lIf{$S_{new}=\emptyset$}{$S_{new}\leftarrow S_{base}$}
+    Compute $R\leftarrow S_{old}\setminus S_{new}$ and $A\leftarrow S_{new}\setminus S_{old}$\;
+    $S_{old}\leftarrow S_{new}$\;
+    Rebuild the filtered header from $S_{new}$ and notify the model adaptation listener\;
 }
 \label{alg:drift_aware_selector}
 \end{algorithm}
@@ -723,8 +738,13 @@ detectors, which keeps the adaptation policy concentrated in a single place.
 subspaces of size 20, ADWIN with $\delta=0.002$, reset weight 0.3, recovery
 rate 0.001, and a reset ratio of 0.5. On Agrawal variants, the configuration
 uses subspaces of size 4, ADWIN with $\delta=0.001$, reset weight 0.5, and
-recovery rate 0.005. On LED, the subspace size is 7 so that a learner can in
-principle cover all relevant LED-segment attributes. On the high-dimensional
+recovery rate 0.005. On LED, the subspace size is 7. We note that this equals
+the number of relevant LED-segment attributes; since that number is known only
+because LED is a synthetic generator, choosing the subspace size from it is an
+oracle-informed setting that would not be available on a real stream. We
+therefore report the LED result as a controlled diagnostic of how the method
+handles irrelevant attributes, not as a label-free comparison, and flag this as
+a limitation. On the high-dimensional
 RBF stream, the subspace size is 20, matching the real CTR setting. The
 different settings reflect the feature-space size and drift dynamics of each
 stream family.}
@@ -974,9 +994,17 @@ drift-aware feature selection.}
 &
 Added two \texttt{algorithm2e} blocks: the prequential evaluation/adaptation
 pipeline and the ADWIN-triggered drift-aware feature-selection procedure.
+\new{In the second revision, Algorithm~\ref{alg:main_pipeline} now explicitly
+shows that a monolithic model is reinitialised on the new filtered header when
+the selector changes the subset (DASRP instead repairs only the affected
+subspaces); Algorithm~\ref{alg:drift_aware_selector} was corrected so that
+$S_{base}$ initialises $S_{new}$ and that $S_{old}$/$S_{new}$ are defined input
+and output sets used to form the removed/added sets; and the LED subspace size
+of 7 is no longer justified by the ground-truth relevant-attribute count but
+flagged as an oracle-informed diagnostic setting.}
 &
 Subsection~\ref{subsec:stream_pip}, Algorithm~\ref{alg:main_pipeline}; Subsection~\ref{subsec:drift-aware},
-Algorithm~\ref{alg:drift_aware_selector}. \\
+Algorithm~\ref{alg:drift_aware_selector}\new{, Subsection~\ref{subsec:drift_aware_srp}}. \\
 \hline
 \textit{Clarify how feature selection influences existing models such as HT,
 and whether past models are dropped or new splits are constrained.}
